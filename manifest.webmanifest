@@ -1,0 +1,11 @@
+{
+  "name": "Goose Pond",
+  "short_name": "Goose Pond",
+  "description": "A calm little pond.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1d2a58",
+  "theme_color": "#1d2a58"
+}

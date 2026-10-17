@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goose Pond">
+<meta name="theme-color" content="#1d2a58">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Goose Pond</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="dayLabel"></div>
+
+<div id="buttons">
+  <button id="wishBtn" type="button"><canvas width="10" height="10"></canvas></button>
+  <button id="muteBtn" type="button"><canvas width="9" height="7"></canvas></button>
+  <button id="pouchBtn" type="button"><canvas width="12" height="12"></canvas></button>
+</div>
+
+<div id="bubble" role="status">
+  <span id="bubbleText"></span>
+  <div id="bubbleActions"></div>
+  <i id="bubbleTail"></i>
+</div>
+
+<div id="wishOverlay">
+  <div id="wishPanel">
+    <div id="wishTitle"></div>
+    <div id="wishList"></div>
+    <div id="wishNote"></div>
+  </div>
+</div>
+
+<div id="pouchOverlay">
+  <div id="pouchPanel">
+    <div id="pouchTop">
+      <div id="diamonds"><canvas id="diamondIcon" width="10" height="8"></canvas><span id="diamondCount">0</span></div>
+      <button id="replayBtn" type="button" hidden><canvas width="8" height="6"></canvas></button>
+    </div>
+    <div id="pouchGrid"></div>
+  </div>
+</div>
+
+<div id="talk">
+  <div id="talkCard">
+    <div id="talkQ"></div>
+    <textarea id="talkIn" rows="3" maxlength="2000" autocomplete="off" spellcheck="true"></textarea>
+    <div id="talkVoice"><button id="talkMic" type="button" hidden></button><button id="talkVoiceSend" type="button" hidden></button><span id="talkTimer"></span></div>
+    <div id="talkNote"></div>
+    <div id="talkBtns"><button id="talkSkip" type="button"></button><button id="talkSend" type="button"></button></div>
+  </div>
+</div>
+
+<div id="probe"></div>
+
+<script src="lines.js"></script>
+<script src="sprites.js"></script>
+<script src="goodies.js"></script>
+<script src="config.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
