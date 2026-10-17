@@ -823,7 +823,7 @@
     ST.talks.push(talkKey()); ST.talks = ST.talks.slice(-12); save();
     openTalk(LINES.talk.ask[slot] || LINES.talk.ask.evening, 'day');
   }
-  function openFreeTalk() { if (!talk) openTalk(LINES.talk.free, 'free'); }
+  function openFreeTalk() { if (!talk) openTalk(pick(LINES.talk.free), 'free'); }
   function closeTalk() {
     voiceCancel(); talkEl.classList.remove('open'); talkIn.blur(); talk = null;
   }

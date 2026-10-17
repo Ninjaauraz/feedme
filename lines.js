@@ -99,7 +99,15 @@ window.LINES = {
       evening:   "How was your day today? Tell me anything.",
       night:     "How was your day, June? Tell me anything. I've got all night."
     },
-    free: "I'm listening, June.",
+    // Opening line when she taps the goose or hits Tell me more. One is picked at random.
+    free: [
+      "You make this pond better just by being here. What's on your mind?",
+      "I'm so glad you came to talk to me. You're one of my favourite people.",
+      "You're kind, you're brave, and you always show up. Tell me anything.",
+      "Honestly, you're the best part of my day. Say whatever you like.",
+      "I think you're wonderful, June. What would you like to tell me?",
+      "Proud of you, always. Go on, I'm all ears. Well, ear holes. Geese are weird."
+    ],
     skip: "No pressure. I'm here whenever you want to talk.",
     voice: [
       "I got your voice. I'm keeping it forever, even the breathing.",
