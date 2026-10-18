@@ -124,11 +124,16 @@
     W.glades.forEach(function (gl) {
       var n = gl.n === 'hub' ? 1 : (gl.n === 'w' || gl.n === 'e') ? 1 : 2;
       for (k = 0; k < n; k++) {
-        var ang = r() * 6.283 + k * 3.1, rad = gl.r * (0.45 + r() * 0.25);
+        var ang = r() * 6.283 + k * 3.1, rad = gl.r * ((gl.n === 'hub' ? 0.45 : 0.7) + r() * (gl.n === 'hub' ? 0.25 : 0.2));
         W.spots.push({ id: W.spots.length, type: SPOT_TYPES[typeI++ % SPOT_TYPES.length], x: Math.round(gl.x + Math.cos(ang) * rad), y: Math.round(gl.y + Math.sin(ang) * rad), glade: gl.n });
       }
     });
     W.spots.push({ id: W.spots.length, type: SPOT_TYPES[typeI++ % SPOT_TYPES.length], x: Math.round(WW * 0.5 + 14), y: Math.round(WH * 0.69), glade: 'trail' });
+    // the six places to play, one in the middle of each outer glade
+    var gm = {}; W.glades.forEach(function (q) { gm[q.n] = q; });
+    W.pois = [['ring', 'nw'], ['leaves', 'ne'], ['log', 'w'], ['hammock', 'e'], ['picnic', 'sw'], ['pond', 'se']].map(function (p) {
+      return { id: p[0], x: Math.round(gm[p[1]].x), y: Math.round(gm[p[1]].y) };
+    });
     // boulders
     for (i = 0; i < 40 && W.rocks.length < 14; i++) {
       var rx = 10 + r() * (WW - 20), ry = 10 + r() * (shoreY - 20), rr = 4 + Math.floor(r() * 3);
@@ -230,12 +235,44 @@
       g.fillRect(cx + x, cy + y, 1, 1);
     }
   }
+  // a tiny hash so the leaf texture is the same every time
+  function hsh(x, y) { var h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+  // a tree crown seen from above: four overlapping lobes, lit from the top left, with leaf clumps, scalloped seams and an outline
+  function crown(g, cx, cy, rr, C) {
+    var L = [[-0.35, 0.15, 0.7], [0.35, 0.1, 0.7], [0, -0.3, 0.72], [0, 0.2, 0.78]].map(function (l) {
+      return { x: cx + Math.round(l[0] * rr), y: cy + Math.round(l[1] * rr), r: Math.max(2, Math.round(l[2] * rr)) };
+    });
+    var x0 = cx - rr - 3, y0 = cy - rr - 3, S = 2 * rr + 7, own = new Int8Array(S * S), i, x, y, px, py;
+    for (i = 0; i < own.length; i++) own[i] = -1;
+    for (i = 0; i < 4; i++) for (y = -L[i].r; y <= L[i].r; y++) for (x = -L[i].r; x <= L[i].r; x++) {
+      if (x * x + y * y > L[i].r * L[i].r + 1) continue;
+      px = L[i].x + x - x0; py = L[i].y + y - y0;
+      if (px >= 0 && py >= 0 && px < S && py < S) own[py * S + px] = i;
+    }
+    function ow(a, b) { return a < 0 || b < 0 || a >= S || b >= S ? -1 : own[b * S + a]; }
+    for (py = 0; py < S; py++) for (px = 0; px < S; px++) {
+      var o = own[py * S + px];
+      if (o < 0) continue;
+      var lb = L[o], wx = px + x0, wy = py + y0, nx = (wx - lb.x) / lb.r, ny = (wy - lb.y) / lb.r;
+      var l = -(0.62 * nx + 0.78 * ny) + (hsh(wx, wy) - 0.5) * 0.5 + (hsh((wx / 3) | 0, (wy / 3) | 0) - 0.5) * 0.4;
+      var col = l > 0.62 ? C.hi : l > 0.2 ? C.lit : l > -0.32 ? C.base : C.shade;
+      if (ow(px - 1, py) < 0 || ow(px + 1, py) < 0 || ow(px, py - 1) < 0 || ow(px, py + 1) < 0) col = nx + ny < -0.4 ? C.shade : C.dark;
+      else { var a = ow(px - 1, py), b = ow(px, py - 1); if ((a >= 0 && a < o) || (b >= 0 && b < o)) col = l > 0.4 ? C.base : C.shade; }
+      g.fillStyle = col; g.fillRect(wx, wy, 1, 1);
+    }
+  }
   function paintWorld(g, W, P) {
     var r = mulberry(31337), WW = W.WW, WH = W.WH, x, y, k, i;
     g.imageSmoothingEnabled = false; g.globalAlpha = 1;
     var grass = mixc(P.gr, [18, 60, 26], 0.42), g2 = mixc(grass, [0, 25, 10], 0.25), g3 = mixc(grass, [140, 190, 80], 0.13);
     g.fillStyle = rgb(grass); g.fillRect(0, 0, WW, WH);
     for (k = 0; k < WW * WH / 220; k++) blobAt(g, Math.floor(r() * WW), Math.floor(r() * WH), 2 + Math.floor(r() * 5), 1 + Math.floor(r() * 3), r() < 0.55 ? g2 : g3);
+    // lighter blades and little shadow flecks so the ground is not flat
+    for (k = 0; k < WW * WH / 170; k++) {
+      var tx = Math.floor(r() * WW), ty = Math.floor(r() * W.shoreY);
+      g.fillStyle = rgb(g3); g.fillRect(tx, ty, 1, 2); g.fillRect(tx - 1, ty - 1, 1, 1); g.fillRect(tx + 1, ty - 1, 1, 1);
+      g.fillStyle = rgb(g2); g.fillRect(tx, ty + 2, 1, 1);
+    }
     // fallen leaves
     var leaf = [[182, 112, 52], [204, 150, 60], [128, 78, 42]];
     for (k = 0; k < WW * WH / 140; k++) { g.fillStyle = rgb(mixc(leaf[k % 3], grass, 0.35)); g.fillRect(Math.floor(r() * WW), Math.floor(r() * W.shoreY), 1 + (k & 1), 1); }
@@ -250,6 +287,13 @@
     W.trailPts.forEach(function (p) { blobAt(g, Math.round(p[0]), Math.round(p[1]), 6, 5, dirtD); });
     W.trailPts.forEach(function (p) { blobAt(g, Math.round(p[0]), Math.round(p[1]), 5, 4, dirt); });
     W.trailPts.forEach(function (p, idx) { if (idx % 5 === 0) { g.fillStyle = rgb(mixc(dirt, [255, 240, 200], 0.25)); g.fillRect(Math.round(p[0] + (r() - 0.5) * 7), Math.round(p[1] + (r() - 0.5) * 6), 1, 1); } });
+    // pebbles and ruts along the trails
+    W.trailPts.forEach(function (p, idx) {
+      if (idx % 3) return;
+      var ex = Math.round(p[0] + (r() < 0.5 ? -1 : 1) * (4 + r() * 2)), ey = Math.round(p[1] + (r() - 0.5) * 6);
+      g.fillStyle = rgb(mixc(dirtD, [255, 255, 255], 0.1)); g.fillRect(ex, ey, 2, 1);
+      if (r() < 0.4) { g.fillStyle = '#c9ced6'; g.fillRect(Math.round(p[0] + (r() - 0.5) * 8), Math.round(p[1] + (r() - 0.5) * 6), 1, 1); }
+    });
     // ferns, moss, grass tufts and flowers
     var fern = mixc(grass, [40, 120, 50], 0.4);
     for (k = 0; k < WW * WH / 500; k++) {
@@ -264,6 +308,50 @@
         g.fillStyle = rgb(fern); g.fillRect(Math.round(gl.x + Math.cos(a) * d), Math.round(gl.y + Math.sin(a) * d * 0.85) + 1, 1, 1);
       }
     });
+    // the places to play
+    var wcol = mixc(P.wL, P.wD, 0.3), tpx = function (x, y, c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
+    W.pois.forEach(function (p) {
+      var x = p.x, y = p.y, a, i2;
+      if (p.id === 'ring') {
+        blobAt(g, x, y, 9, 7, mixc(grass, [170, 215, 100], 0.3));
+        for (i2 = 0; i2 < 9; i2++) {
+          a = i2 / 9 * 6.283; var mx = Math.round(x + Math.cos(a) * 10), my = Math.round(y + Math.sin(a) * 8);
+          g.fillStyle = '#fffaf0'; g.fillRect(mx, my + 1, 1, 2);
+          g.fillStyle = '#a42f3a'; g.fillRect(mx - 2, my - 1, 5, 2); g.fillStyle = '#d94a4a'; g.fillRect(mx - 1, my - 2, 3, 1); g.fillRect(mx - 2, my - 1, 5, 1);
+          tpx(mx - 1, my - 1, '#fffaf0'); tpx(mx + 1, my - 1, '#fffaf0');
+        }
+      } else if (p.id === 'leaves') {
+        g.globalAlpha = 0.3; blobAt(g, x + 2, y + 3, 10, 6, [0, 0, 0]); g.globalAlpha = 1;
+        blobAt(g, x, y, 10, 7, [150, 74, 36]); blobAt(g, x - 1, y - 1, 8, 5, [190, 110, 44]);
+        var lc = ['#d9a441', '#c8873a', '#b2542f', '#e0c25a'];
+        for (i2 = 0; i2 < 70; i2++) { var lx = Math.round(x + (r() - 0.5) * 18), ly = Math.round(y + (r() - 0.5) * 12); if (Math.pow((lx - x) / 9, 2) + Math.pow((ly - y) / 6, 2) < 1) { g.fillStyle = lc[i2 % 4]; g.fillRect(lx, ly, 2, 1); } }
+      } else if (p.id === 'log') {
+        g.globalAlpha = 0.3; g.fillStyle = '#000'; g.fillRect(x - 10, y + 3, 22, 3); g.globalAlpha = 1;
+        g.fillStyle = '#5a3a1e'; g.fillRect(x - 11, y - 3, 22, 7); g.fillStyle = '#8a5a30'; g.fillRect(x - 11, y - 3, 22, 5); g.fillStyle = '#a8723f'; g.fillRect(x - 11, y - 3, 22, 2);
+        g.fillStyle = '#5a3a1e'; for (i2 = 0; i2 < 5; i2++) g.fillRect(x - 8 + i2 * 4, y - 2 + (i2 & 1), 1, 3);
+        g.fillStyle = '#4a8a3f'; g.fillRect(x - 6, y - 3, 4, 1); g.fillRect(x + 2, y + 2, 3, 1);
+        blobAt(g, x + 11, y, 2, 3, [217, 179, 140]); tpx(x + 11, y, '#a9825a');
+        g.fillStyle = '#7a4d28'; g.fillRect(x - 3, y + 4, 4, 2); g.fillRect(x - 12, y + 3, 3, 3);
+      } else if (p.id === 'hammock') {
+        [-13, 13].forEach(function (dx) { blobAt(g, x + dx, y, 3, 3, [90, 58, 30]); blobAt(g, x + dx - 1, y - 1, 2, 2, [138, 90, 48]); });
+        g.fillStyle = '#e8d9a0'; g.fillRect(x - 10, y - 4, 20, 8); g.fillStyle = '#6aa9e0';
+        for (i2 = 0; i2 < 20; i2 += 4) g.fillRect(x - 10 + i2, y - 4, 2, 8);
+        g.fillStyle = '#7a4d28'; g.fillRect(x - 10, y - 5, 20, 1); g.fillRect(x - 10, y + 4, 20, 1);
+        g.fillStyle = '#d9b38c'; g.fillRect(x - 12, y - 1, 2, 1); g.fillRect(x + 10, y - 1, 2, 1);
+      } else if (p.id === 'picnic') {
+        g.globalAlpha = 0.28; g.fillStyle = '#000'; g.fillRect(x - 10, y - 6, 24, 18); g.globalAlpha = 1;
+        for (var by = 0; by < 16; by += 4) for (var bx = 0; bx < 22; bx += 4) { g.fillStyle = ((bx + by) / 4) % 2 ? '#fffaf0' : '#d94a4a'; g.fillRect(x - 11 + bx, y - 8 + by, 4, 4); }
+        g.fillStyle = '#7a4d28'; g.fillRect(x + 4, y - 7, 6, 5); g.fillStyle = '#a8723f'; g.fillRect(x + 4, y - 7, 6, 2); g.fillStyle = '#5a3a1e'; g.fillRect(x + 5, y - 9, 4, 1);
+        g.fillStyle = '#fffaf0'; g.fillRect(x - 8, y + 3, 4, 3); g.fillRect(x + 2, y + 3, 4, 3); tpx(x - 7, y + 4, '#d94a4a'); tpx(x + 3, y + 4, '#ffd75a');
+      } else if (p.id === 'pond') {
+        blobAt(g, x, y, 14, 9, [92, 92, 100]); blobAt(g, x, y, 12, 8, [74, 120, 90]);
+        blobAt(g, x, y, 11, 7, wcol); blobAt(g, x + 1, y + 1, 8, 5, mixc(wcol, [0, 20, 50], 0.18));
+        for (i2 = 0; i2 < 16; i2++) { a = i2 / 16 * 6.283; g.fillStyle = i2 % 3 ? '#9aa0a8' : '#c9ced6'; g.fillRect(Math.round(x + Math.cos(a) * 13), Math.round(y + Math.sin(a) * 8.5), 2, 2); }
+        [[-5, -2], [3, 2], [6, -3]].forEach(function (pd) { blobAt(g, x + pd[0], y + pd[1], 2, 1, [61, 138, 69]); });
+        tpx(x - 5, y - 3, '#f48fb1'); tpx(x + 6, y - 4, '#fffaf0');
+        g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x - 7, y + 1, 4, 1); g.fillRect(x + 1, y - 1, 3, 1);
+      }
+    });
     // boulders
     W.rocks.forEach(function (rk) {
       g.fillStyle = 'rgba(0,0,0,0.25)'; blobAt(g, rk.x + 2, rk.y + 3, rk.r, rk.r * 0.7, [0, 0, 0]); g.globalAlpha = 1;
@@ -274,13 +362,12 @@
     g.globalAlpha = 0.28;
     W.trees.forEach(function (t) { blobAt(g, t.x + 3, t.y + 4, t.r * 0.95, t.r * 0.75, [0, 12, 6]); });
     g.globalAlpha = 1;
+    var treeC = {};
     W.trees.forEach(function (t) {
-      var b = treeBase[t.tone], hi = rgb(mixc(b, [190, 230, 120], 0.28)), sh = rgb(mixc(b, [0, 20, 20], 0.4)), base = rgb(b), rr = t.r;
-      lobe(g, t.x - Math.round(rr * 0.35), t.y + Math.round(rr * 0.15), Math.round(rr * 0.7), base, hi, sh);
-      lobe(g, t.x + Math.round(rr * 0.35), t.y + Math.round(rr * 0.1), Math.round(rr * 0.7), base, hi, sh);
-      lobe(g, t.x, t.y - Math.round(rr * 0.3), Math.round(rr * 0.72), base, hi, sh);
-      lobe(g, t.x, t.y + Math.round(rr * 0.2), Math.round(rr * 0.78), base, hi, sh);
-      g.fillStyle = hi; g.fillRect(t.x - 1, t.y - Math.round(rr * 0.5), 2, 1);
+      var b = treeBase[t.tone], C = treeC[t.tone] || (treeC[t.tone] = {
+        hi: rgb(mixc(b, [200, 240, 130], 0.4)), lit: rgb(mixc(b, [150, 210, 90], 0.2)), base: rgb(b), shade: rgb(mixc(b, [0, 24, 24], 0.36)), dark: rgb(mixc(b, [0, 14, 18], 0.64))
+      });
+      crown(g, t.x, t.y, t.r, C);
     });
     // the sandy landing, the pond beyond it, and the moored boat from above
     var sand = mixc([226, 205, 150], P.gr, 0.12);

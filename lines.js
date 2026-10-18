@@ -285,7 +285,8 @@ window.LINES = {
       { id: 'feeder', text: 'Fill the bird feeder', target: 1 },
       { id: 'visitor', text: 'Pet a visitor', target: 1 },
       { id: 'cook', text: 'Cook something in the hut', target: 1 },
-      { id: 'dance', text: 'Dance somewhere', target: 1 }
+      { id: 'dance', text: 'Dance somewhere', target: 1 },
+      { id: 'play', text: 'Play somewhere in the forest', target: 1 }
     ]
   },
 
@@ -360,6 +361,21 @@ window.LINES = {
     found: ["You found something!", "Sniff, sniff... yes! That's one.", "Good finding, June."],
     empty: ["Nothing here. Try somewhere else.", "Just leaves. Keep looking."],
     allFound: "That's everything I hid today. Good finding, June.",
+    // Places to play. Each has: start (when she arrives), gift (the first visit of the day), again (later visits).
+    poi: {
+      ring: { start: "A fairy ring! Stand in the middle and dance. They say something nice happens.", gift: "The mushrooms left you a little something.", again: ["Dancing again? The ring hums.", "More dancing! I love it."] },
+      leaves: { start: "A giant pile of leaves. You know what to do. Jump!", gift: "You found something in the leaves!", again: ["Again! Again!", "Leaves everywhere. Perfect."] },
+      log: { start: "A nice log to sit on. Let's rest a moment and listen to the forest.", gift: "A bird dropped something by the log. For you.", again: ["Still and quiet. I like it here.", "Listen... the birds are back."] },
+      hammock: { start: "A hammock! Climb in. We'll keep watch.", gift: "A lovely rest. And look, something under the hammock.", again: ["Back for more rest? Good idea.", "Swing, swing. Don't fall asleep. Okay, maybe do."] },
+      picnic: { start: "A picnic blanket! Sit, sit. Everyone can share.", gift: "What a lovely picnic. Someone left a gift on the blanket.", again: ["Second helpings!", "A snack is always a good idea."] },
+      pond: { start: "A tiny frog pond. Toss a pebble and see who comes to say hello.", gift: "The frogs left you something shiny.", again: ["Plop! Hello, frogs.", "Splash. They remember you."] }
+    },
+    poiRepeat: ["That was lovely.", "Wonderful. The forest likes having you here.", "Honk. Best forest day."],
+    poiFed: "And I even got a snack. Thank you, June.",
+    poiAll: "You visited every special place today. The forest is delighted. Here's a diamond.",
+    squirrelNo: ["The squirrel looks at your hands. It wants an acorn.", "Squirrels love acorns. Maybe find one first?"],
+    squirrelYes: "Nom nom. A very happy squirrel.",
+    squirrelGift: "The squirrel left you a thank-you.",
     homeAsk: "Ready to row home?",
     home: "Home again. The pond missed us."
   },

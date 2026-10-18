@@ -209,3 +209,27 @@ Edit files, re-upload, and bump `CACHE = 'goose-pond-v1'` in `sw.js` (v2, v3...)
 - `manifest.webmanifest`: Home Screen app metadata
 - `sw.js`: minimal offline service worker
 - `README.md`: this file
+
+## Art polish pass
+
+- **Forest trees** are now leafy crowns built from overlapping lobes: lit from the top left, with leaf clumps, scalloped seams and a dark outline so the canopy reads as individual trees. The forest floor has grass blades, flecks, and pebbles along the trails.
+- **Pond:** bushes and tree rows use the same lighting, mountains fade into haze at their base, the water has little wavelets, the bank has a sandy edge and soft shade, and the grass has faint mown stripes and fuller tufts.
+- **Hut:** shingled roof with a lit left slope, shaded right slope and dark edges, plank lines and knots on the walls, and a soft shadow under the roof beam.
+
+- **Characters and objects** (June, the goose at every age, the puppy, hut, bench, boat and so on) now get automatic volume: a light edge facing the top left and a darker edge facing the bottom right, on top of the soft outline. The goose also has a wing.
+- **Sky:** clouds are shaded in four tones with soft undersides, the sun has a bright core, warm rim and a dithered halo, and haze softens the far trees and mountains.
+- **Water:** a sky reflection brightens the far side, a shadow sits under the far shore, and by day the sun leaves a shimmering glitter path across the pond.
+
+## Things to do in the forest
+
+Besides finding things, each outer glade of the forest now has a place to play. Tap one and June walks over and does it; the guide comments. A sparkle shows which ones you have not visited today.
+
+- **Fairy ring** (north-west): she dances in a ring of red mushrooms, with sparkles and notes.
+- **Leaf pile** (north-east): she spins and jumps in it while leaves burst up.
+- **Log** (west): she sits and listens to the forest.
+- **Hammock** (east): she lies down and rests.
+- **Picnic blanket** (south-west): a snack. If the goose came along, it feeds him (resets his hunger).
+- **Frog pond** (south-east): she tosses pebbles, ripples spread and the frogs hop about.
+- **Daily reward:** the first visit to each place each day leaves a small gift. Visiting all six in one day gives a diamond. Playing also counts for the new wish **Play somewhere in the forest**.
+- **Squirrels:** tap a squirrel when you have an acorn; June gives it one and it leaves a thank-you gift. Without an acorn the guide hints that it wants one.
+- Tap anywhere else while she is playing to stop and walk on. Text is under `forest.poi` in `lines.js`.

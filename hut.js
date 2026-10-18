@@ -155,11 +155,26 @@
       g.fillStyle = rgb(mixc([176, 60, 56], P.gr2, 0.1 + (row & 1) * 0.08)); g.fillRect(mid - half, y, half * 2, 3);
       g.fillStyle = rgb(mixc([120, 36, 40], P.gr2, 0.1)); for (x = mid - half + (row & 1) * 3; x < mid + half; x += 6) g.fillRect(x, y + 2, 5, 1);
     }
+    for (y = peakY, row = 0; y < ceilY; y += 3, row++) {
+      var hf = (roofR - roofL) / 2 * ((y - peakY) / (ceilY - peakY));
+      g.fillStyle = 'rgba(255,225,200,0.16)'; g.fillRect(mid - hf, y, hf * 2, 1);
+      g.fillStyle = 'rgba(50,10,24,0.16)'; g.fillRect(mid + hf * 0.15, y, hf * 0.85, 3);
+      g.fillStyle = '#5a1e26'; g.fillRect(mid - hf - 1, y, 2, 3); g.fillRect(mid + hf - 1, y, 2, 3);
+      for (x = mid - hf + 3 + (row & 1) * 3; x < mid + hf - 2; x += 12) { g.fillStyle = 'rgba(255,215,190,0.18)'; g.fillRect(x, y + 1, 2, 1); }
+    }
     g.fillStyle = '#5a3a1e'; g.fillRect(roofL, ceilY - 1, roofR - roofL, 4);
+    g.fillStyle = '#8a5a30'; g.fillRect(roofL, ceilY - 1, roofR - roofL, 1);
+    g.globalAlpha = 0.28; g.fillStyle = '#2a1608'; g.fillRect(rx, ceilY + 3, ROOM_W, 3); g.globalAlpha = 1;
     g.fillStyle = '#6c727c'; g.fillRect(rx + 226, peakY + 6, 12, ceilY - peakY - 4); g.fillStyle = '#9aa0a8'; g.fillRect(rx + 224, peakY + 4, 16, 4);
     // the room
     var wall = [214, 168, 112];
     for (x = rx; x < rx + ROOM_W; x += 1) { g.fillStyle = rgb(mixc(wall, [60, 30, 10], x % 12 === 0 ? 0.18 : 0)); g.fillRect(x, ceilY + 4, 1, floorY - ceilY - 4); }
+    for (y = ceilY + 24; y < floorY - 10; y += 16) {
+      g.fillStyle = 'rgba(70,36,12,0.22)'; g.fillRect(rx, y, ROOM_W, 1);
+      g.fillStyle = 'rgba(255,236,190,0.12)'; g.fillRect(rx, y + 1, ROOM_W, 1);
+    }
+    for (k = 0; k < 14; k++) { g.fillStyle = 'rgba(80,44,16,0.4)'; var kx = rx + 4 + Math.floor(r() * (ROOM_W - 8)), ky = ceilY + 14 + Math.floor(r() * (floorY - ceilY - 30)); g.fillRect(kx, ky, 2, 1); g.fillRect(kx + 1, ky + 1, 1, 1); }
+    for (y = 0; y < 10; y++) { g.fillStyle = 'rgba(40,20,6,' + (0.2 - y * 0.02).toFixed(3) + ')'; g.fillRect(rx, ceilY + 9 + y, ROOM_W, 1); }
     g.fillStyle = rgb(mixc(wall, [60, 30, 10], 0.22)); g.fillRect(rx, floorY - 10, ROOM_W, 10);
     g.fillStyle = rgb(mixc(wall, [255, 240, 200], 0.2)); g.fillRect(rx, floorY - 11, ROOM_W, 1);
     g.fillStyle = '#7a4d28'; g.fillRect(rx, ceilY + 4, ROOM_W, 5); g.fillStyle = '#a8723f'; g.fillRect(rx, ceilY + 4, ROOM_W, 1);

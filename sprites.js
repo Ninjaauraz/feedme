@@ -76,13 +76,31 @@
     x.putImageData(out, 0, 0);
     return o;
   }
+  // Gives every character and object some volume: a light edge facing the top left, a darker edge facing the bottom right.
+  function shaded(c) {
+    var w = c.width, h = c.height;
+    if (w < 7 || h < 7) return c;
+    var x = c.getContext('2d'), id = x.getImageData(0, 0, w, h), d = id.data, o = new Uint8ClampedArray(d), i, j;
+    function op(a, b) { return a >= 0 && b >= 0 && a < w && b < h && d[(b * w + a) * 4 + 3] > 0; }
+    for (j = 0; j < h; j++) for (i = 0; i < w; i++) {
+      if (!op(i, j)) continue;
+      var ul = !op(i, j - 1) || !op(i - 1, j) ? 1 : (!op(i, j - 2) || !op(i - 2, j)) ? 2 : 0;
+      var dr = !op(i, j + 1) || !op(i + 1, j) ? 1 : (!op(i, j + 2) || !op(i + 2, j)) ? 2 : 0;
+      var t;
+      if (ul && !dr) t = ul === 1 ? 0.18 : 0.08; else if (dr && !ul) t = dr === 1 ? -0.22 : -0.1; else continue;
+      var k = (j * w + i) * 4, tr = t > 0 ? [255, 250, 225] : [18, 10, 44], a = Math.abs(t);
+      o[k] = d[k] + (tr[0] - d[k]) * a; o[k + 1] = d[k + 1] + (tr[1] - d[k + 1]) * a; o[k + 2] = d[k + 2] + (tr[2] - d[k + 2]) * a;
+    }
+    id.data.set(o); x.putImageData(id, 0, 0);
+    return c;
+  }
   var OUTLINED = /^(goose_|gosling_|juv_|june_|bench$|lamp$|bread$|dog_|hut$|boat$|mound$|fire_pit$|feeder$|visit_)/;
   var sets = {}, srcGrids = {};
   function add(name, grids, hats) {
     srcGrids[name] = grids;
     sets[name] = grids.map(function (g, i) {
       var c = build(g), ol = OUTLINED.test(name);
-      if (ol) c = outlined(c);
+      if (ol) c = outlined(shaded(c));
       return { c: c, f: flip(c), w: c.width, h: c.height, hat: hats ? (hats[i] || hats[0]) : null, wl: ol ? 14 : 13 };
     });
   }
@@ -105,6 +123,7 @@
     ".....o....o.....",
     "....oo...oo....."
   ]);
+  STAND = P(STAND, [5, 8, 's', 6, 8, 's', 7, 9, 's', 11, 9, 's']);
   var BODY = STAND.slice(7, 15); // rows 7..14 (body + legs)
   function withHead(headRows, bodyFrom) { // headRows (7 rows) + body rows from 7
     return headRows.concat(STAND.slice(bodyFrom || 7));
@@ -210,7 +229,7 @@
     ['stand', 'swim', 'waddle', 'eat', 'honk', 'sleep', 'groggy', 'annoyed', 'confused', 'stretch', 'hat'].forEach(function (n) {
       var src = srcGrids['goose_' + n];
       sets[prefix + n] = src.map(function (g, i) {
-        var c = outlined(build(shrink(g, ratio), pal)), hat = sets['goose_' + n][i].hat;
+        var c = outlined(shaded(build(shrink(g, ratio), pal))), hat = sets['goose_' + n][i].hat;
         return { c: c, f: flip(c), w: c.width, h: c.height, wl: Math.round(13 * ratio) + 1,
           hat: hat ? [Math.round(hat[0] * ratio), Math.round(hat[1] * ratio)] : null };
       });
