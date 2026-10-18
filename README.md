@@ -32,6 +32,10 @@ then open `http://localhost:8123/`. (Service workers only run on https or localh
 | `?stage=0` / `1` / `2` | Show the gosling, young goose or grown goose |
 | `?chat=1` | The next roll is a typed conversation |
 | `?finale=1` | Play the collect-everything surprise right away |
+| `?hungry=0` to `3` | Show how the goose looks when hungry |
+| `?forest=1` | Jump straight to the forest (and give her the boat) |
+| `?boat=1` | The goose builds the boat when the game opens |
+| `?world=1` | Unlock everything: boat, fire pit, bird feeder, lots of feeds and a full set of materials |
 
 Rolls happen after every 4 to 6 pieces eaten, so toss 4 to 6 breads. Combine freely: `/?reset=1&hour=22&goodie=1`.
 
@@ -65,6 +69,58 @@ Still all drawn in code, but sharper and fuller: every art pixel is an exact who
 - **Tiny daily wishes:** the star button in the corner shows three wishes picked for the day (pet the puppy, feed 5 bread, skip a stone 3+ times, tell the goose how she is, and so on). Each one she finishes gives a diamond. No streaks, nothing is lost if she skips them. Edit the list under `wishes` in `lines.js`.
 - **Stone skipping:** a quick **flick** across the water (up and across, like skipping a stone) makes June throw a stone. A faster flick makes more skips, up to 9, with a ripple and a little plop each time. A plain tap still throws bread. Big skips make the goose honk and say something. A hint appears once in the first minute.
 - **June walks around:** every minute or so she gets up, strolls to the shore or across the grass with the puppy trotting after her, sometimes skips a stone herself, and walks back to her bench. Tapping the bench still waves or throws bread; bread thrown while she is away comes from wherever she is.
+
+## The boat and the forest
+
+- **Hunger:** if the goose is not fed for a long while he slows down (after about 12 hours a little, after 30 hours more, after 3 days he is weak and droopy). He says so gently, never blaming her. One piece of bread and he is back to normal at once, with a thank-you. The timing is in `hungerLevel()` in `game.js`.
+- **The goose builds the boat himself.** Once she has collected 4 different goodies, the next time she opens the game the goose and the puppy are hammering away by the water, and a little rowboat appears with a message. There is no crafting to do. (More things the goose can build later are listed in `BUILDS` in `forest.js`.)
+- **Rowing across:** tap the boat, then Row there. June and the puppy sit in the boat and row across the pond (the goose swims after them), and they land in the forest.
+- **The goose joins, or not:** on arrival the goose asks if he can come. If she says Come along, he follows June and guides her to hidden things. If she says Not this time, he waits by the boat and the puppy, who always follows June, leads the way instead. No penalty either way.
+- **The forest is seen from above** and is much bigger than the screen: a dense forest of about 200 trees with dirt trails, six glades in the corners and edges, boulders, ferns and flowers, drifting leaves and sunbeams. The camera follows June. Tap anywhere and she finds her own way around the trees (she will not walk through them).
+- **Hidden things:** the puppy hides 6 things a day (new places each day) in the bushes, logs, rocks, stumps, burrows, flower patches and mushroom rings, spread out toward the corners so she has to explore. Tap a hiding place and June walks over; the guide runs ahead and honks or barks, and the spot glints, if something is there. Finds go into the backpack in the pouch. Tap the boat at the shore to row home.
+- **Wildlife:** snakes slither along the trails (they startle June for a moment, and the goose or puppy reacts, but nothing bad ever happens and they slip away), frogs hop about, squirrels dash up trees, birds chirp by day. Tap a snake to shoo it.
+- **The puppy digs by the pond:** every minute or two in daytime it buries something and leaves a little mound that glints. Tap the mound to dig it up.
+- **Backpack:** finds show under the goodies in the pouch, with a small count when she has more than one.
+
+## Fire pit, s'mores, bird feeder, birds and visitors
+
+- **The goose builds more things himself** when she has gathered what he needs, checked each time the game opens (in this order): the boat (4 different goodies), a fire pit (3 twigs and 3 pebbles), then a bird feeder (2 twigs and a pinecone). What he uses is taken from her backpack. The twigs, pebbles and pinecones come from the forest and from what the puppy digs up. Edit the requirements in `BUILDS` in `forest.js`.
+- **The fire pit** glows in the evening and at night, with a soft crackle. Tap it for **s'mores**: if she has a marshmallow, a piece of chocolate and a cracker (all found in the forest or dug up by the puppy), June walks over, roasts a marshmallow on a stick while the goose and the puppy gather round, and eats it. That uses the three ingredients and gives a diamond. Without them the goose says what is missing.
+- **The bird feeder:** tap it to fill it with seeds (it holds 6 visits). In the daytime birds fly in, perch on the tray or peck at the ground, then fly off. Four kinds come, in this order as time goes on: sparrow, bluebird, robin, cardinal. Every 5th visit from a kind, that bird leaves a small gift by the feeder (feather, berry, flower, shell, acorn, button, ribbon or pearl). Tap the gift to collect it. Tap a bird for a chirp and hearts.
+- **Visitors:** the more the birds have been fed, the more animals drop by, at the right time of day: a bunny (morning and evening, after 6 feeds), a hedgehog (at night, after 15) and a fox kit (dawn and dusk, after 30). They wander in from the edge of the screen, stay a minute or two, then leave. Tap one for hearts; pet it three times and it may leave a gift. The goose points out each kind the first time it comes.
+- New daily wishes: roast s'mores, fill the bird feeder, pet a visitor.
+- Everything above is drawn in code; nothing needs an image file.
+
+## Personalities and a fuller screen
+
+Every animal now behaves like someone. Tap one and it says something in its own voice (all in `animals` in `lines.js`):
+
+- **The goose:** sincere and a bit dramatic; now and then he mutters something to himself.
+- **The puppy:** eager and easily distracted. It has zoomies, chases butterflies, and sometimes fetches a stick and drops it at June's feet (tap the stick to collect it). It also starts zoomies when the fox kit pounces about.
+- **Sparrow:** cheeky, in and out quickly, hopping about. **Bluebird:** shy, and bolts if the puppy or goose comes near. **Robin:** cheerful, sings while it stays. **Cardinal:** proud, stays long and leaves fancier gifts (ribbon, pearl, feather).
+- **Bunny:** shy and gentle; freezes and bolts if the goose or puppy gets close, then slowly trusts her. **Hedgehog:** grumpy but sweet; curls into a ball when others come near, and uncurls once it has been petted three times. **Fox kit:** mischievous; pounces around, plays with the puppy, and gifts after two pets.
+- **Fish:** the orange one is bold and nibbles at floating bread, the white one is lazy, the yellow one shows off and jumps a lot, the blue one is shy and darts away from splashes.
+
+**Using the whole screen:** on tall portrait screens the empty sky now has distant snowy mountains, drifting clouds, and things to look at: a V of geese (the goose's cousins) flying over, a hot-air balloon that drifts by in the daytime, and at night an aurora and shooting stars. Tap the balloon once a day and it drops a small gift; tap a shooting star once a night to make a wish for a diamond; tap the geese for a honk. On wide screens (iPad, landscape) the extra room at the sides now has more lily pads and reeds, and the fish, goose, birds and visitors use it too.
+
+## Inside the hut, cooking, and tap-to-dance
+
+- **Go inside:** tap the hut and June walks over, the door opens, and the screen fades into a cozy cutaway of the room (roof, chimney smoke and the pond view through the window included). The room is wider than a portrait screen, so the camera follows her as she walks. The puppy tags along and does the talking in here.
+- **What is inside:** a bed with a patchwork quilt, a small kitchen (iron stove with a kettle, a counter with a sink, a jar shelf), a table and chair on a rug, a floor lamp, a plant, a framed picture of the goose, a hook for the tiny hat, the puppy's own bed, and a **shelf that shows everything she has collected**. The window shows the real time of day outside (stars at night, a sunbeam by day).
+- **Tap to explore:** tap the floor and June walks there, then randomly **sits, jumps or dances**. Tap the bed to sleep (tap again to wake), the table to sit, the window or shelf to look, the plant or picture for a line from the puppy, and the door to go back out.
+- **Cooking:** tap the stove for the kitchen list: berry jam toast, mushroom soup, pinecone and flower tea, clover and berry salad, hot cocoa, acorn porridge. A dish is available when she has the ingredients (from the forest and the puppy's digging), and cooking **uses them up**. She stirs at the stove, carries the dish to the table and eats it. Each dish gives a diamond the first time she makes it. Edit the recipes in `hut.js` and the names under `dishes` in `lines.js`.
+- **Outside too:** tap the empty grass anywhere and June gets up, walks over and sits, jumps or dances, then goes back to her bench. Water taps still throw bread and flicks still skip stones. New wishes: cook something, dance somewhere.
+- **Sized for June:** the furniture and room are scaled to her (about 23 pixels tall): the counter, stove and table come up to her waist, the chair faces the table, the door is a little taller than she is, and the ceiling is low and cozy.
+- **Smoother June animation:** she now walks toward and away from you with front and back views as well as side views, with a little bob, a soft shadow, and an easing start. On the grass she sits cross-legged (with blinks), jumps with a crouch and a stretch, and dances with arms up, to the side and swaying, with music notes floating up.
+- Test shortcut: `?hut=1` jumps inside with some ingredients.
+- Test shortcut: `?hut=2` jumps inside with an empty pantry and the boat built.
+
+## No ingredients? An adventure, and the boat any time
+
+- **Find it:** in the kitchen list, every dish she cannot make yet has a green **Find it** button. Tap it and June says she will go and look, walks out, boards the boat and rows to the forest (the boat trip starts by itself).
+- **The quest:** a small card at the top left shows the dish and what is still missing (for example a mushroom 0/2). That day the puppy hides exactly those missing ingredients among the hiding places (plus a few other things), in fresh spots. Tap hiding places as usual; the goose or puppy guides her. When she has them all the guide says so and offers Row home.
+- **Back home:** the goose says they have everything. Tap the hut and she walks in, goes to the stove and the kitchen list opens by itself, ready to cook. Cooking that dish ends the quest. If she leaves the forest early the quest stays until she cooks it. Without a boat yet she is told to wait for it. Text is under `quest` in `lines.js`.
+- **The boat is tappable at all times** once it is built: while June is strolling, walking to the hut, sleeping in the hut, roasting s'mores or the goose is talking. She drops what she is doing and heads to the boat. If the goose is busy building something, the trip starts the moment he finishes.
 
 ## Growing up, diamonds, conversations, the surprise
 
@@ -146,6 +202,8 @@ Edit files, re-upload, and bump `CACHE = 'goose-pond-v1'` in `sw.js` (v2, v3...)
 - `game.js`: engine (rendering, day/night, goose and June behavior, rolls, saving, audio, input)
 - `sprites.js`: all pixel art as palette grids, the pixel cloud and the Home Screen icon generator
 - `goodies.js`: goodie sprites and rarities
+- `forest.js`: the forest art, items, recipes and hiding places
+- `hut.js`: the inside of the hut (furniture, room, kitchen recipes)
 - `lines.js`: every line of text June reads
 - `config.js`: Supabase address and public key for saving her answers
 - `manifest.webmanifest`: Home Screen app metadata

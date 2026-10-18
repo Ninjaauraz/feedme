@@ -76,7 +76,7 @@
     x.putImageData(out, 0, 0);
     return o;
   }
-  var OUTLINED = /^(goose_|gosling_|juv_|june_|bench$|lamp$|bread$|dog_|hut$)/;
+  var OUTLINED = /^(goose_|gosling_|juv_|june_|bench$|lamp$|bread$|dog_|hut$|boat$|mound$|fire_pit$|feeder$|visit_)/;
   var sets = {}, srcGrids = {};
   function add(name, grids, hats) {
     srcGrids[name] = grids;
@@ -269,6 +269,8 @@
   add('june_smile', [jSmile]);
   add('june_doze', [jDozeA, jDozeB]);
   add('stone', [G(['.xx.', 'xlxx', '.XX.'])]);
+  add('mound', [G(['...tt...', '..tTTt..', '.tTtttT.', 'TTTTTTTT'])]);
+  add('boat', [G(['.' + rep('N', 22) + '.', 'N' + rep('n', 6) + 'T' + rep('n', 6) + 'T' + rep('n', 7) + 'NN', '.N' + rep('n', 19) + 'NN.', '..' + rep('N', 19) + '...'])]);
 
   /* ---------- June standing / sleeping, the hut, the puppy, the fish ---------- */
   var JW_BODY = [
@@ -331,6 +333,75 @@
   add('dog_sit', [dogA, dogB]);
   add('dog_walk', [dogW1, dogW2]);
   add('dog_sleep', [G(["..NNttt.....", ".NtkttttT...", "kttttttttT..", "wttttttttttT", ".TTttttttTTT", "..TTTTTTTT.."])]);
+  add('june_row', [shrink(JB, 0.55)]);
+
+  /* ---------- June from the front and the back, sitting, jumping and dancing ---------- */
+  function W14(rows) { return G(rows.map(function (r) { return '.' + r + '.'; })); }
+  var JF_HEAD = ["...hhhhhh...", "..hhhhhhhh..", ".hhhhhhhhhh.", ".hhffffffhh.", ".hhfkffkfhh.", ".hhffffffhh.", ".hhfpFFpfhh.", "..hhffffhh..", "...hhffhh..."];
+  var JF_BODY = ["..cccccccc..", ".cccccccccc.", ".cccCccCccc.", ".fccccccccf.", "..cccccccc..", "..jjjjjjjj..", "..jjjjjjjj..", "..jjj..jjj..", "..jjj..jjj..", "..jjj..jjj..", "..jjj..jjj..", "..eee..eee..", ".eeee..eeee."];
+  var JF = W14(JF_HEAD.concat(JF_BODY));
+  // walking: lift one leg, swing the opposite arm forward
+  var WF1 = P(JF, [3, 21, '.', 4, 21, '.', 5, 21, '.', 2, 21, '.', 3, 20, '.', 4, 20, '.', 5, 20, '.', 3, 19, 'e', 4, 19, 'e', 5, 19, 'e',
+    2, 12, 'c', 2, 11, 'f', 11, 12, 'c', 11, 13, 'f']);
+  var WF3 = P(JF, [8, 21, '.', 9, 21, '.', 10, 21, '.', 11, 21, '.', 8, 20, '.', 9, 20, '.', 10, 20, '.', 8, 19, 'e', 9, 19, 'e', 10, 19, 'e',
+    11, 12, 'c', 11, 11, 'f', 2, 12, 'c', 2, 13, 'f']);
+  function toBack(g) {
+    var o = g.map(function (r) { return r.slice(); }), y, x;
+    for (y = 3; y <= 7; y++) for (x = 3; x <= 10; x++) if ('fkpF'.indexOf(o[y][x]) >= 0) o[y][x] = 'h';
+    o[5][6] = 'H'; o[5][7] = 'H';
+    return o;
+  }
+  add('june_front', [JF, WF1, JF, WF3]);
+  add('june_back', [toBack(JF), toBack(WF1), toBack(JF), toBack(WF3)]);
+  // sitting cross-legged, facing us
+  var SIT = W14(JF_HEAD.concat(["..cccccccc..", ".cccccccccc.", ".fccCccCccf.", "..cccccccc..", ".jjjjjjjjjj.", "jjjjjjjjjjjj", "..eeeeeeee.."]));
+  add('june_sitf', [SIT, P(SIT, [5, 4, 'F', 8, 4, 'F']), MV(SIT, 0, 8, 1, 0)]);
+  // jumping: crouch, then up in the air with arms raised
+  var JC = W14(JF_HEAD.concat(["..cccccccc..", ".cccccccccc.", ".fcccCCcccf.", "..cccccccc..", ".jjjjjjjjjj.", "jjjjjjjjjjjj", ".eeee..eeee."]));
+  function armsUp(g, left, right) {
+    var ops = [];
+    if (left) ops.push(1, 4, 'f', 1, 5, 'c', 1, 6, 'c', 1, 7, 'c', 1, 8, 'c', 1, 9, 'c', 2, 12, 'c');
+    if (right) ops.push(12, 4, 'f', 12, 5, 'c', 12, 6, 'c', 12, 7, 'c', 12, 8, 'c', 12, 9, 'c', 11, 12, 'c');
+    return P(g, ops);
+  }
+  function armsOut(g) { return P(g, [0, 10, 'f', 1, 10, 'c', 13, 10, 'f', 12, 10, 'c', 2, 12, 'c', 11, 12, 'c']); }
+  var AIR = armsUp(W14(JF_HEAD.concat(JF_BODY.slice(0, 7)).concat([".jjj....jjj.", ".jjj....jjj.", "jjj......jjj", "eee......eee"])), true, true);
+  add('june_jump', [JC, AIR]);
+  // dancing: arms up on one side, both sides, the other side, then out wide
+  add('june_dance', [armsUp(JF, true, false), armsUp(JF, true, true), armsUp(JF, false, true), armsOut(JF)]);
+  add('note', [G(["...vv", "...v.", "...v.", "...v.", ".vvv.", "vvvv.", ".vv.."])]);
+  add('dog_row', [shrink(dogA, 0.7), shrink(dogB, 0.7)]);
+
+  /* ---------- campfire, bird feeder, birds and the little visitors ---------- */
+  add('fire_pit', [G([
+    "..N......N....", "...NnnnnN.....", ".xxXnNnNnXxx..", "xXxxXXXXxxXxx.", ".xXxxxxxxxXx.."])]);
+  sets.flame = [
+    ["...r...", "..rro..", "..roqo.", ".rooqoo", ".roqqzo", "..oqzo.", "...oo.."],
+    ["..r....", "..rro..", ".rroqo.", ".rooqoo", ".roqqzo", "..oqzo.", "...oo.."],
+    ["....r..", "..orr..", "..oqor.", ".ooqoro", ".ozqqor", "..ozqo.", "...oo.."]
+  ].map(function (rows) { var c = build(G(rows)); return { c: c, f: flip(c), w: c.width, h: c.height }; });
+
+  var feederRows = ["...RRRRRR...", "..RRRRRRRR..", ".RRrRRRRrRR.", "............", ".N........N.", ".N........N.", ".nnnnnnnnnn.", ".nYYYYYYYYn.", "....NN......"];
+  for (var fp = 0; fp < 9; fp++) feederRows.push("....NN......");
+  add('feeder', [G(feederRows)]);
+
+  var BIRD = G(["....bb..", "...bbbbo", "...bkbb.", "..bbBBb.", ".bbbBBb.", "bb.bbb..", "...y.y.."]);
+  var BIRD_PECK = MV(BIRD, 0, 3, 0, 2);
+  var BIRD_FLY = P(BIRD, [2, 2, 'b', 1, 1, 'b', 2, 1, 'b', 6, 6, '.', 4, 6, '.']);
+  [['sparrow', '#8a6a48', '#d8c7a8'], ['blue', '#4a86d6', '#f0cfa0'], ['robin', '#7a5a3a', '#e8743a'], ['red', '#d63a3a', '#b82a2a']].forEach(function (sp) {
+    var pal = {}, kk; for (kk in PAL) pal[kk] = PAL[kk]; pal.b = sp[1]; pal.B = sp[2];
+    sets['bird_' + sp[0]] = [BIRD, BIRD_PECK, BIRD_FLY].map(function (gr) { var c = outlined(build(gr, pal)); return { c: c, f: flip(c), w: c.width, h: c.height }; });
+  });
+
+  var BUNNY = G([".......w.w..", ".......w.w..", ".......wwww.", ".......wkwwp", "..wwwwwwwww.", ".wwwwwwwww..", "wwwwwwwwww..", ".wwwwwwwww..", "..ww..ww...."]);
+  add('visit_bunny', [BUNNY, P(BUNNY, [2, 8, '.', 3, 8, '.', 6, 8, 'w', 7, 8, 'w', 8, 7, 'w'])]);
+  var HEDGE = G(["...NnNnN...", "..NNnNnNN..", ".NnNnNnNNtt", ".NNnNnNNttk", ".NnNnNnNNtp", "..tt..tt..."]);
+  add('visit_hedgehog', [HEDGE, P(HEDGE, [2, 5, '.', 3, 5, '.', 4, 5, 't', 6, 5, '.', 7, 5, 't'])]);
+  var FOX = G([".......o.o..", ".......ooo..", "......ooooo.", ".oooo.owkoop", "oooooooooo..", "owwooooooo..", "owwoooooo...", ".oo.oo.oo..."]);
+  add('visit_fox', [FOX, P(FOX, [1, 7, '.', 2, 7, 'o', 4, 7, '.', 5, 7, 'o', 0, 3, 'w', 0, 4, 'w'])]);
+  add('visit_hedgehog_ball', [G(["..NnNnN..", ".NnNnNnN.", "NnNnNnNnN", "NNnNnNnNN", "NnNnNnNnN", ".NNnNnNN.", "..NNNNN.."])]);
+  add('balloon', [G(["...rwrwr...", "..rwrwrwr..", ".rwrwrwrwr.", ".rwrwrwrwr.", ".rwrwrwrwr.", "..rwrwrwr..", "...rwrwr...", "....N.N....", "....N.N....", "...nnnnn...", "...NNNNN..."])]);
+  sets.flockbird = [["w.....w", ".w...w.", "..www..", "...s..."], ["...s...", "..www..", ".w...w.", "w.....w"]].map(function (rows) { var c = build(G(rows)); return { c: c, f: flip(c), w: c.width, h: c.height }; });
 
   var FA = G(["...ooo..", "oo.oooko", "oo.ooooo", "...ooo.."]), FB = G(["o..ooo..", ".o.oooko", ".o.ooooo", "o..ooo.."]);
   [['#ff9a3c', '#ff9a3c'], ['#f4f1ea', '#f4f1ea'], ['#ffd75a', '#ffd75a'], ['#7f9cc0', '#7f9cc0']].forEach(function (cc, fi) {
@@ -459,7 +530,7 @@
 
   window.Sprites = {
     PAL: PAL, sets: sets, build: build, fromRows: fromRows, outline: outline,
-    cloud: cloud, outlined: outlined, tailURL: tailURL, iconURL: iconURL,
+    cloud: cloud, outlined: outlined, shrink: shrink, tailURL: tailURL, iconURL: iconURL,
     get: function (name, i) { var s = sets[name]; return s[(i || 0) % s.length]; }
   };
 })();

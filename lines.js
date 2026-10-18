@@ -16,6 +16,21 @@ window.LINES = {
     pouchLabel: 'Open pouch',
     muteLabel: 'Sound on or off',
     replayLabel: 'Replay the surprise',
+    go: 'Row there',
+    roast: "Roast s'mores",
+    cook: 'Cook',
+    later: 'Later',
+    joinYes: 'Come along',
+    joinNo: 'Not this time',
+    rowHome: 'Row home',
+    stay: 'Stay',
+    find: 'Find it',
+    combine: 'Combine',
+    askGoose: 'Ask the goose',
+    askDog: 'Ask the puppy',
+    gooseName: 'Goose',
+    dogName: 'Puppy',
+    packTitle: 'Backpack',
     talkNote: 'What you write or record here is sent to me, your goose. Only I can read and hear it.',
     talkPlaceholder: 'Type here...',
     talkSend: 'Send',
@@ -263,7 +278,14 @@ window.LINES = {
       { id: 'wave', text: 'Give June a little tap', target: 1 },
       { id: 'collect', text: 'Collect a goodie', target: 1 },
       { id: 'fish', text: 'Watch a fish leap', target: 1 },
-      { id: 'hut', text: 'See June rest in the hut', target: 1 }
+      { id: 'hut', text: 'See June rest in the hut', target: 1 },
+      { id: 'dig', text: 'Dig up something the puppy buried', target: 1 },
+      { id: 'forest', text: 'Find something in the forest', target: 1 },
+      { id: 'smores', text: "Roast s'mores by the fire", target: 1 },
+      { id: 'feeder', text: 'Fill the bird feeder', target: 1 },
+      { id: 'visitor', text: 'Pet a visitor', target: 1 },
+      { id: 'cook', text: 'Cook something in the hut', target: 1 },
+      { id: 'dance', text: 'Dance somewhere', target: 1 }
     ]
   },
 
@@ -274,6 +296,186 @@ window.LINES = {
   hints: {
     skip: "Try flicking your finger across the water. I think June can skip a stone.",
     wish: "See the little star up there? It has three tiny wishes for today. No pressure."
+  },
+
+  // When the goose has not been fed for a long while he slows down. Gentle, never blaming. One piece of bread fixes it.
+  hunger: {
+    l1: "My tummy is making goose noises.",
+    l2: "I'm getting a bit weak, June. Could I have some bread?",
+    l3: "So... hungry... Just a few crumbs would make me feel so much better.",
+    fed: "Mmm. So much better. Thank you for feeding me."
+  },
+
+  // Names for everything she can carry (shown on the workbench).
+  items: {
+    berry: 'Berry', flower: 'Flower', shell: 'Shell', pebble: 'Pebble', acorn: 'Acorn', jar: 'Firefly jar', hat: 'Tiny hat',
+    crumb: 'Golden crumb', star: 'Star', ring: 'Toy ring',
+    plank: 'Plank', sail: 'Sail', boat: 'Boat',
+    twig: 'Twig', mushroom: 'Mushroom', pinecone: 'Pinecone', feather: 'Feather', clover: 'Clover',
+    marshmallow: 'Marshmallow', chocolate: 'Chocolate', cracker: 'Cracker', button: 'Button', ribbon: 'Ribbon', pearl: 'Pearl'
+  },
+
+  // The goose builds things himself once she has collected enough. The boat comes first.
+  build: {
+    boat: "I built you a boat while you were away, June! Tap it by the water when you want to row across to the forest.",
+    fire: "I made a fire pit from the things we found! It lights up in the evening. Tap it when we have a marshmallow, chocolate and a cracker for s'mores.",
+    feeder: "I built a bird feeder! Tap it to fill it with seeds, and see who comes to visit."
+  },
+
+  smores: {
+    ask: "Shall we roast s'mores? We have a marshmallow, chocolate and a cracker. The puppy is already drooling.",
+    need: [
+      "We need a marshmallow, some chocolate and a cracker for s'mores. The puppy might have buried some.",
+      "No s'mores yet. Look in the forest for a marshmallow, chocolate and a cracker."
+    ],
+    done: [
+      "Sticky, sweet and perfect. Best evening ever.",
+      "Honk! I may have stolen a crumb. Don't tell anyone."
+    ]
+  },
+
+  feeder: {
+    fed: ["Seeds out! Let's see who comes.", "Breakfast is served. Reservations welcome."]
+  },
+
+  visitors: {
+    first: {
+      bunny: "A bunny! Move slowly. It's shy.",
+      hedgehog: "Look, a hedgehog! Such a spiky little friend.",
+      fox: "A fox kit! Small, orange and very curious."
+    }
+  },
+
+  // The boat trip and the forest.
+  forest: {
+    rowAsk: "Shall we row across to the forest?",
+    join: "We made it! Can I come with you? I'll guide you to the shiny things.",
+    joined: "Honk! Follow me, June!",
+    dogLead: ["Woof! I'll show you where I hid things!", "Woof woof! This way, June!"],
+    snake: [
+      "Ssssnake! Don't worry, it's more scared of us than we are of it.",
+      "Woof! Just a snake passing through. Keep walking, June.",
+      "Honk! Shoo! Off you go, snake."
+    ],
+    found: ["You found something!", "Sniff, sniff... yes! That's one.", "Good finding, June."],
+    empty: ["Nothing here. Try somewhere else.", "Just leaves. Keep looking."],
+    allFound: "That's everything I hid today. Good finding, June.",
+    homeAsk: "Ready to row home?",
+    home: "Home again. The pond missed us."
+  },
+
+  // Personalities. Tap an animal and it says something in its own voice.
+  // goose: sincere and a little dramatic. dog: eager, easily distracted. sparrow: cheeky. blue (bluebird): shy.
+  // robin: cheerful singer. red (cardinal): proud. bunny: shy and gentle. hedgehog: grumpy but sweet. fox: mischievous.
+  animals: {
+    goose: [
+      "I'm not hungry. I'm just... bread-curious.",
+      "Technically, I run this pond. Quietly. With dignity.",
+      "Honk. That was nothing. Ignore me.",
+      "I was thinking about bread, and you. In that order. Sometimes the other order."
+    ],
+    dog: [
+      "Woof! Did you say walk? Was it walk? Say walk!",
+      "I found a stick. I love the stick. The stick is my best friend.",
+      "Squirrel? Where? ...never mind, butterfly.",
+      "I'm a very good boy. Check the records."
+    ],
+    sparrow: [
+      "Chirp! Got seeds? Asking for a friend. The friend is me.",
+      "These crumbs are mine. All of them. Mostly.",
+      "I'm small but I have BIG opinions."
+    ],
+    blue: [
+      "Oh! H-hello. I'm just passing through. Please don't look.",
+      "You're very kind. I'm very... fluttery.",
+      "Is the dog nearby? Just checking."
+    ],
+    robin: [
+      "La la! Good morning! Or evening! Any time is a song!",
+      "I wrote a new tune. It's mostly 'tweet'.",
+      "Everything is better with a song."
+    ],
+    red: [
+      "I am the cardinal. You may admire me.",
+      "Yes, the red is natural. Thank you for noticing.",
+      "I only visit people of quality. You pass."
+    ],
+    bunny: [
+      "...hi. Can I stay a little? I'll be quiet.",
+      "Nibble nibble. Don't mind me.",
+      "You're gentle. I like gentle."
+    ],
+    hedgehog: [
+      "Hmph. I'm not here for you. ...okay, maybe a little.",
+      "Careful, I'm spiky. Emotionally too.",
+      "Fine. You can pet me. Once. Maybe twice."
+    ],
+    fox: [
+      "Hehe! Bet you can't catch me.",
+      "I definitely did not take that. Check your pockets.",
+      "Want to play? Say yes. I'm already pouncing."
+    ],
+    frog: [
+      "Ribbit. This log is my log.",
+      "Ribbit. I am a grumpy wizard. Do not ask."
+    ],
+    squirrel: [
+      "I buried an acorn somewhere. Now I forgot where. Again.",
+      "Chk chk! Nuts. Always nuts."
+    ]
+  },
+
+  // Things that happen in the sky.
+  sky: {
+    flock: ["My cousins! They never write.", "Honk! Safe travels, cousins!"],
+    balloon: ["A balloon! Look, they dropped something for you!", "The balloon sent a present down. How kind."],
+    balloonAgain: ["Wave to the balloon. It already gave you today's surprise.", "Nice balloon. It's all out of presents for today."],
+    wish: ["A shooting star! Quick, you made a wish. Here's a diamond for it.", "Make a wish, June. The sky heard you."]
+  },
+
+  // Inside the hut. The puppy does the talking.
+  hut: {
+    enter: ["Home sweet hut. The puppy approves.", "Cozy in here, isn't it?", "Smells like wood and warm things."],
+    window: {
+      morning: "Look, the morning light on the pond. I could watch it all day.",
+      afternoon: "Everyone's out there enjoying the sun. We have the best seat.",
+      evening: "The sky is turning pink. Good timing.",
+      night: "Stars! So many. The goose is out there somewhere being dramatic."
+    },
+    shelf: ["All the things you've found. {n} so far!", "Every one of these has a story. Mostly involving me digging."],
+    counter: ["That's the sink. I'm not allowed to drink from it. I do anyway.", "The counter is tall. Everything good is on the counter."],
+    plant: ["The plant is doing great. I only chewed it twice.", "Leafy friend! Needs water. Don't look at me."],
+    picture: ["That's the goose. Handsome, isn't he? Very dramatic.", "A picture of the goose. I'm jealous. Slightly."],
+    bed: ["Nap time! Don't forget your quilt.", "Sleep well. I'll guard the bed. And the snacks."],
+    wake: "Mm. Good nap. Back to the world."
+  },
+
+  // Cooking. Each dish uses up its ingredients.
+  cook: {
+    title: 'Kitchen',
+    note: 'Each dish uses up its ingredients.',
+    none: "Nothing in the pantry. Tap Find it by any dish and we'll go and gather what it needs.",
+    start: ["Let's see what we can cook...", "Chop chop. The puppy is supervising."],
+    done: ["Delicious! Even the puppy got a crumb.", "That hit the spot."],
+    first: "A new recipe! Here's a diamond for the chef."
+  },
+  // The ingredient adventure: no ingredients, so off to the forest to find them.
+  quest: {
+    title: 'Find for {x}',
+    start: ["Out of ingredients? Then we go and find some. To the boat!", "Woof! The forest has everything. I'll show you.", "Right, shopping trip. The forest is the shop."],
+    noBoat: "We'd need the boat first. The goose is still collecting what he needs to build it.",
+    done: "That's all of it! Ready to row home and cook {x}?",
+    boatNudge: "Shall we row back? The kitchen is waiting.",
+    home: "Got everything. Off to the kitchen, June!",
+    cookNow: "Now we're cooking. Let's see what we can make."
+  },
+  boat: {
+    busy: "I'll take you across the moment I'm done here. Honk.",
+    busyDog: "Woof! Boat trip soon!"
+  },
+  dishes: {
+    jam: 'Berry jam toast', soup: 'Mushroom soup', tea: 'Pinecone and flower tea',
+    salad: 'Clover and berry salad', cocoa: 'Hot cocoa with marshmallow', porridge: 'Acorn porridge'
   },
 
   // Optional dated lines. Uncomment and edit; they only appear on that day.

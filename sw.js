@@ -1,7 +1,7 @@
 /* Minimal offline support: cache the app shell, serve from cache, refresh in the background.
    Bump CACHE whenever you change any file so phones pick up the new version. */
-var CACHE = 'goose-pond-v9';
-var ASSETS = ['./', 'index.html', 'style.css', 'game.js', 'sprites.js', 'goodies.js', 'lines.js', 'config.js', 'manifest.webmanifest'];
+var CACHE = 'goose-pond-v16';
+var ASSETS = ['./', 'index.html', 'style.css', 'game.js', 'sprites.js', 'goodies.js', 'lines.js', 'forest.js', 'hut.js', 'config.js', 'manifest.webmanifest'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(

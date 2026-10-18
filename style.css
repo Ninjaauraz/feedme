@@ -302,3 +302,64 @@ body { height: 100vh; height: 100dvh; }
 .wish .wtext { flex: 1; }
 .wish .prog { flex: none; font-size: 14px; color: #6c7894; }
 #wishNote { text-align: center; font: 500 13px/1.3 system-ui, -apple-system, sans-serif; color: #6c7894; margin-top: 6px; }
+
+/* backpack, counts and the workbench */
+.cell { position: relative; }
+button.cell { border: 0; padding: 0; font: inherit; color: inherit; touch-action: manipulation; }
+.cell .count { position: absolute; right: 5px; bottom: 2px; font: 700 12px/1 ui-rounded, system-ui, sans-serif; color: #35405f; }
+#packTitle { margin: 12px 2px 8px; font: 700 14px/1 ui-rounded, system-ui, sans-serif; color: #6c7894; }
+#packTitle:empty { display: none; }
+#packGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+#pouchTop { gap: 8px; }
+#pouchTop #diamonds { margin-right: auto; }
+@media (max-height: 520px) {
+  #pouchPanel { width: min(100%, 680px); }
+  #pouchGrid, #packGrid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+}
+
+/* the kitchen */
+#cookOverlay {
+  position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+  background: rgba(10, 16, 40, 0.55);
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+#cookOverlay.open { display: flex; }
+#cookPanel {
+  width: min(100%, 460px); max-height: 100%; overflow-y: auto; padding: 16px;
+  background: rgba(255, 250, 240, 0.97); border-radius: 22px; color: #35405f;
+  font: 600 16px/1.35 ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
+}
+#cookTitle { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 10px; }
+.cookrow { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 6px 10px; margin-bottom: 8px; border-radius: 14px; background: rgba(150, 160, 190, 0.14); }
+.cookrow.no .dishic, .cookrow.no .cookmid { opacity: 0.6; }
+.cookrow .dishic { flex: none; width: 36px; image-rendering: pixelated; }
+.cookmid { flex: 1; min-width: 0; }
+.dishname { font-size: 15px; }
+.chips { display: flex; gap: 10px; margin-top: 3px; }
+.chips span { display: inline-flex; align-items: center; gap: 3px; }
+.chips canvas { width: 20px; image-rendering: pixelated; }
+.chips b { font-size: 12px; color: #4a9a4a; }
+.chips b.low { color: #c4515e; }
+.cookrow button { flex: none; min-width: 64px; min-height: 44px; padding: 0 14px; border: 2px solid #4f66a8; border-radius: 14px; background: #6a82c4; color: #fff; font: 700 15px/1 ui-rounded, system-ui, sans-serif; touch-action: manipulation; }
+.cookrow button:disabled { background: #cfd5e6; border-color: #b8c0d8; color: #8a93ad; }
+#cookNote { text-align: center; font: 500 13px/1.3 system-ui, -apple-system, sans-serif; color: #6c7894; margin-top: 6px; }
+
+#questBar {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 36px);
+  left: calc(env(safe-area-inset-left, 0px) + 14px);
+  display: none;
+  padding: 7px 10px 8px;
+  border-radius: 12px;
+  background: rgba(20, 30, 50, 0.55);
+  color: #fff;
+  font: 600 12px/1.2 ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+  z-index: 3;
+}
+#questBar .qtitle { opacity: 0.85; margin-bottom: 5px; }
+#questBar .qchips { display: flex; gap: 8px; }
+#questBar .qchips span { display: inline-flex; align-items: center; gap: 3px; }
+#questBar .qchips canvas { width: 20px; height: 20px; image-rendering: pixelated; }
+#questBar .qchips .got { color: #9be07d; }
+.cookrow.no button { background: #4f9a78; border-color: #3a7a5c; color: #fff; }

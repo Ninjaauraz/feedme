@@ -36,7 +36,9 @@
     return { seen: [], bread: 0, dates: [], last: '', goodies: [], lastRare: '', firstDone: false,
       mute: false, daily: '', day2Done: false, day2Date: '', pending: [],
       stage: 0, diamonds: 0, finaleDone: false, mood: '', moodDate: '', dev: '', talks: [],
-      mem: { events: [], likes: [], people: [], lastMem: '' }, wishes: { date: '', ids: [], prog: {}, done: {} }, hintSkip: false, hintWish: false };
+      mem: { events: [], likes: [], people: [], lastMem: '' }, wishes: { date: '', ids: [], prog: {}, done: {} }, hintSkip: false, hintWish: false,
+      inv: {}, made: [], boat: false, lastFed: 0, hintIdx: {}, forest: { date: '', spots: {}, found: {}, checked: {} },
+      fire: false, feeder: false, seeds: 0, feeds: 0, bond: {}, smores: 0, seenV: [], starDate: '', balloonDate: '', cooked: {}, quest: null };
   }
   var ST = defaultState();
   function loadState() {
@@ -88,7 +90,7 @@
     COLORKEYS.forEach(function (k) { c[k] = mixc(a[k], b[k], t); });
     c.tint = [lerp(a.tint[0], b.tint[0], t), lerp(a.tint[1], b.tint[1], t), lerp(a.tint[2], b.tint[2], t), lerp(a.tint[3], b.tint[3], t)];
     c.star = lerp(a.star, b.star, t); c.fly = lerp(a.fly, b.fly, t); c.lamp = lerp(a.lamp, b.lamp, t);
-    cur = c; bgDirty = true;
+    cur = c; bgDirty = true; fbgDirty = true; hbgDirty = true;
   }
   function isNightHour() { return hourF >= 20 || hourF < 5; }
 
@@ -132,6 +134,7 @@
   function sBubble() { sfx(function (t) { tone(784, t, 0.5, 'sine', 0.07); tone(1175, t + 0.12, 0.6, 'sine', 0.05); }); }
   function sCollect() { sfx(function (t) { tone(659, t, 0.3, 'sine', 0.07); tone(831, t + 0.09, 0.3, 'sine', 0.07); tone(1047, t + 0.18, 0.5, 'sine', 0.07); }); }
   function cricketTick() {
+    if (ST.fire && fireLit() && !document.hidden && canSound() && Math.random() < 0.5) sfx(function (t) { tone(rnd(180, 520), t, 0.025, 'square', 0.012); });
     if (!cur || cur.star < 0.6 || document.hidden || !canSound()) return;
     if (Math.random() < 0.35) return;
     sfx(function (t) {
@@ -148,7 +151,7 @@
   var scale = 4, lw = 150, lh = 200, sw = 150, ox = 0, oy = 0, cssW = 0, cssH = 0, dpr = 1;
   var inset = { t: 0, r: 0, b: 0, l: 0 };
   var BANK_Y = 148, L = {};
-  var stars = [], shimmer = [], flies = [], clouds = [], bflies = [], pxK = 1, trailT = 0;
+  var stars = [], shimmer = [], flies = [], clouds = [], bflies = [], pxK = 1, trailT = 0, extras = { pads: [], reeds: [] };
   var glowC = null;
 
   function layout() {
@@ -156,7 +159,8 @@
     L.juneL = L.benchL + 6; L.juneT = 154;
     L.lampX = Math.round(sw * 0.13); L.lampY = 172;
     L.hutCX = Math.round(sw * 0.27); L.hutL = L.hutCX - 15; L.hutY = 181;
-    L.napDayX = Math.round(sw * 0.52); L.napDayY = 178;
+    L.napDayX = Math.round(sw * 0.52); L.boatX = Math.round(sw * 0.62);
+    L.fireX = Math.round(sw * 0.42); L.fireY = 188; L.feederX = Math.round(sw * 0.9); L.feederY = 182; L.napDayY = 178;
     L.slotY = 186;
   }
   function slotX(i) { return L.benchL + 2 - i * 12; }
@@ -193,10 +197,18 @@
     for (i = 0; i < Math.floor(lw / 8); i++) shimmer.push({ x: r() * lw, y: oy + 88 + r() * 54, w: 3 + Math.floor(r() * 6), ph: r() * 6.28 });
     if (!flies.length) for (i = 0; i < 12; i++) flies.push({ x: rnd(0, 150), y: rnd(100, 175), vx: 0, vy: 0, ph: rnd(0, 6.28), t: 0 });
     if (!fishes.length) initFish();
+    extras = { pads: [], reeds: [] };
+    for (i = 0; i < Math.floor(ox / 34); i++) {
+      [-1, 1].forEach(function (sd) {
+        var ex = sd < 0 ? -ox + 8 + i * 34 + r() * 10 : sw + 8 + i * 34 + r() * 10;
+        extras.pads.push({ x: ex, y: 96 + r() * 44 });
+        extras.reeds.push({ x: ex + 12, y: i % 2 ? 148 : 90 });
+      });
+    }
     clouds = [];
     for (i = 0; i < 4 + Math.floor(lw / 120); i++) clouds.push({ x: r() * lw, y: 6 + r() * Math.max(30, oy + 46), c: i % 3, sp: 1.5 + r() * 3 });
     if (!bflies.length) for (i = 0; i < 3; i++) bflies.push({ x: rnd(10, 140), y: rnd(150, 185), vx: 0, vy: 0, t: 0, ph: rnd(0, 6), col: i });
-    bgDirty = true;
+    bgDirty = true; rebuildForest(); rebuildHut();
     clampGoose();
   }
 
@@ -245,6 +257,16 @@
       }
       prev = col;
     }
+    // distant mountains fill the tall sky on portrait screens
+    var MH = clamp(oy * 0.5 + 30, 30, 100);
+    [[0.7, 1, 0.014, 0.7], [0.55, 0.62, 0.03, 2.1]].forEach(function (mt, li) {
+      var col = mixc(P.far, P.skyB, mt[0]);
+      for (x = 0; x < lw; x++) {
+        var nz = Math.abs(Math.sin(x * mt[2] + mt[3]) + 0.6 * Math.sin(x * mt[2] * 2.3 + 1.1)) / 1.6, hh2 = Math.round(MH * mt[1] * (0.35 + 0.65 * nz));
+        g.fillStyle = rgb(col); g.fillRect(x, hz - hh2, 1, hh2 + 1);
+        if (li === 0 && hh2 > MH * 0.78) { g.fillStyle = rgb(mixc(col, [255, 255, 255], 0.55)); g.fillRect(x, hz - hh2, 1, 3); }
+      }
+    });
     // hills
     var layers = [[0.55, 12, 6, 0.03, 0.5, 3, 0.09], [0.32, 7, 4, 0.05, 1.2, 2, 0.13]];
     layers.forEach(function (L2) {
@@ -352,7 +374,7 @@
   var WATER = { x0: 10, x1: 140 };
 
   function clampGoose() {
-    if (goose.state === 'idle' || goose.state === 'chase') { goose.x = clamp(goose.x, 8, sw - 8); }
+    if (goose.state === 'idle' || goose.state === 'chase') { goose.x = clamp(goose.x, 8 - ox * 0.7, sw - 8 + ox * 0.7); }
   }
   function nightish() { return cur && cur.star > 0.5; }
   function hasHat() { return has('hat'); }
@@ -367,17 +389,19 @@
   function releasePending() { if (june.pending) { spawnBread(june.pending.x, june.pending.y); june.pending = null; } }
   function juneToss(tx, ty) {
     releasePending();
-    if (juneAway()) { spawnBread(clamp(tx, 10, sw - 10), clamp(ty, 92, 143)); return; }
+    if (juneAway()) { spawnBread(clamp(tx, 10 - ox * 0.8, sw - 10 + ox * 0.8), clamp(ty, 92, 143)); return; }
     june.mode = 'toss'; june.t = 0; june.awakeT = 8;
-    june.pending = { x: clamp(tx, 10, sw - 10), y: clamp(ty, 92, 143) };
+    june.pending = { x: clamp(tx, 10 - ox * 0.8, sw - 10 + ox * 0.8), y: clamp(ty, 92, 143) };
   }
   function breadCount() { return breads.length + (june.pending ? 1 : 0); }
   function juneMove(tx, ty, sp, dt) {
     var dx = tx - june.wx, dy = ty - june.wy, d = Math.hypot(dx, dy);
-    if (d <= 0.8) return true;
-    var st = Math.min(d, sp * dt);
+    if (d <= 0.8) { june.vel = 0; return true; }
+    june.vel = (june.vel || 0) + (sp - (june.vel || 0)) * Math.min(1, dt * 7);   // ease into the walk
+    var st = Math.min(d, Math.max(4, june.vel) * dt);
     june.wx += dx / d * st; june.wy += dy / d * st;
     if (Math.abs(dx) > 0.3) june.fdir = dx < 0 ? -1 : 1;
+    june.face = Math.abs(dy) > Math.abs(dx) * 1.2 ? (dy > 0 ? 'd' : 'u') : 's';
     return d - st <= 0.8;
   }
   function juneHome() { june.mode = 'idle'; june.t = 0; june.strollAt = playTime + rnd(50, 100); }
@@ -391,6 +415,23 @@
   function updateJune(dt) {
     june.t += dt;
     var mode = june.mode;
+    if (mode === 'tripWalk') { if (juneMove(L.boatX, 157, 26, dt)) tripBoard(); return; }
+    if (mode === 'tripBoat') return;
+    if (mode === 'smoresWalk') { if (juneMove(L.fireX + 13, 189, 26, dt)) { june.mode = 'smoresRoast'; june.t = 0; june.fdir = -1; } return; }
+    if (mode === 'smoresRoast') return;
+    if (mode === 'grassWalk') {
+      if (juneMove(june.target.x, june.target.y, 30, dt)) { june.mode = 'grassAct'; june.t = 0; june.act = pick(['sit', 'jump', 'dance']); june.fdir = Math.random() < 0.5 ? -1 : 1; if (june.act === 'dance') wishEvent('dance'); }
+      return;
+    }
+    if (mode === 'grassAct') {
+      if (june.act === 'dance' && Math.random() < dt * 3) hearts.push({ x: june.wx + rnd(-8, 8), y: june.wy - 26 - rnd(0, 8), t: 0, note: true });
+      if (june.t > ACTS[june.act]) june.mode = 'strollBack';
+      return;
+    }
+    if (mode === 'hutEnter') {
+      if (juneMove(L.hutCX, 182, 28, dt) && !june.fading) { june.fading = true; doFade(function () { june.fading = false; enterHut(); }); }
+      return;
+    }
     if (mode === 'walkOut') { if (juneMove(L.hutCX, 182, 24, dt)) { june.mode = 'hutSleep'; june.t = 0; wishEvent('hut'); } return; }
     if (mode === 'hutSleep') {
       june.nap -= dt; june.zT = (june.zT || 0) + dt;
@@ -458,7 +499,7 @@
     stop = stop || 0.6;
     var dx = tx - goose.x, dy = ty - goose.y, d = Math.hypot(dx, dy);
     if (d <= stop) return true;
-    var s = Math.min(d, sp * dt);
+    var s = Math.min(d, sp * hungerMul() * dt);
     goose.x += dx / d * s; goose.y += dy / d * s;
     if (Math.abs(dx) > 0.4) goose.dir = dx > 0 ? 1 : -1;
     return d - s <= stop;
@@ -500,9 +541,9 @@
         b = nearestBread();
         if (b) { g.state = 'chase'; g.bread = b; break; }
         g.wait -= dt;
-        if (!g.wp || g.wait <= 0) { g.wp = { x: rnd(14, sw - 14), y: rnd(104, 136) }; g.wait = rnd(2.5, 6); }
+        if (!g.wp || g.wait <= 0) { g.wp = { x: rnd(14 - ox * 0.7, sw - 14 + ox * 0.7), y: rnd(104, 136) }; g.wait = rnd(2.5, 6); }
         if (moveTo(g.wp.x, g.wp.y, 12, dt, 1)) { g.wp = null; g.wait = Math.min(g.wait, rnd(1, 3)); }
-        g.x = clamp(g.x, 8, sw - 8);
+        g.x = clamp(g.x, 8 - ox * 0.7, sw - 8 + ox * 0.7);
         break;
       case 'chase':
         b = g.bread;
@@ -514,6 +555,7 @@
         if (g.bread && g.t > 0.5) {
           var ix = breads.indexOf(g.bread); if (ix >= 0) breads.splice(ix, 1);
           g.bread = null; ST.bread++; eatenSinceRoll++; checkGrowth(); wishEvent('feed', 1);
+          fedPending = Math.max(fedPending, hungerLevel()); ST.lastFed = Date.now(); hungerShown = 0;
           if (eatenSinceRoll >= nextRollAt) { eatenSinceRoll = 0; nextRollAt = rint(4, 6); rollPending = true; }
           save();
         }
@@ -522,7 +564,10 @@
       case 'honk':
         if (g.t > 0.75) {
           toIdle();
-          if (rollPending) { rollPending = false; doRoll(); }
+          if (fedPending >= 2) {
+            fedPending = 0; showBubble({ text: LINES.hunger.fed }, { noCount: true });
+            for (var fi = 0; fi < 4; fi++) sparkles.push({ x: g.x + rnd(-8, 8), y: g.y - rnd(4, 16), t: -fi * 0.08 });
+          } else { fedPending = 0; if (rollPending) { rollPending = false; doRoll(); } }
         }
         break;
       case 'path':
@@ -591,7 +636,7 @@
     });
   }
   function collectGoodie(gd) {
-    wishEvent('collect');
+    wishEvent('collect'); addItem(gd.id, 1);
     ground.splice(ground.indexOf(gd), 1);
     var pi = ST.pending.indexOf(gd.id); if (pi >= 0) ST.pending.splice(pi, 1);
     if (!has(gd.id)) ST.goodies.push(gd.id);
@@ -670,7 +715,7 @@
   }
 
   var bubEl = $('bubble'), bubText = $('bubbleText'), bubTail = $('bubbleTail');
-  var bub = { on: false, t: 0, w: 0, h: 0, tw: 0 };
+  var bub = { on: false, t: 0, w: 0, h: 0, tw: 0 }, bubAnchor = goose;
   function showBubble(line, opts) {
     if (!line) return;
     opts = opts || {};
@@ -695,7 +740,7 @@
   }
   function hideBubble() { if (bub.on) { bub.on = false; bubEl.classList.remove('show'); } }
   function placeBubble() {
-    var gx = (goose.x + ox) * scale, gy = (goose.y + oy - (goose.topH || 20)) * scale;
+    var gx = (bubAnchor.x + ox) * scale, gy = (bubAnchor.y + oy - (bubAnchor.topH || 20)) * scale;
     var minL = inset.l + 8, maxL = cssW - inset.r - 8 - bub.w;
     var left = clamp(gx - bub.w / 2, minL, Math.max(minL, maxL));
     var top = Math.max(inset.t + 56, gy - bub.h - bub.tw * 0.9);
@@ -942,7 +987,7 @@
     }
     ST.last = today;
     sessionBubbles = 0; waitingShown = false; lastCat = '';
-    checkGrowth(); ensureWishes();
+    checkGrowth(); ensureWishes(); buildPending = nextBuild();
     greetT = 1.2; save(); updateDayLabel();
   }
   function showGreeting() { var gl = greetingLine(); showBubble(gl, moreAction(gl)); }
@@ -950,7 +995,7 @@
   /* ---------- the puppy, the fish and the hut ---------- */
   var dog = { x: 0, y: 189, dir: -1, state: 'sit', t: 0, wp: null, wait: 4, hop: 0, awakeT: 0 };
   var fishes = [], hearts = [];
-  function juneAway() { var m = june.mode; return m === 'walkOut' || m === 'hutSleep' || m === 'walkBack' || m === 'strollOut' || m === 'strollIdle' || m === 'strollBack'; }
+  function juneAway() { var m = june.mode; return m === 'walkOut' || m === 'hutSleep' || m === 'walkBack' || m === 'strollOut' || m === 'strollIdle' || m === 'strollBack' || m === 'tripWalk' || m === 'tripBoat' || m === 'smoresWalk' || m === 'smoresRoast' || m === 'grassWalk' || m === 'grassAct' || m === 'hutEnter'; }
   function juneGoNap(sec) {
     if (juneAway() || talk || finale) return;
     releasePending();
@@ -969,6 +1014,7 @@
   }
   function updateDog(dt) {
     var d = dog; d.t += dt;
+    if (june.mode === 'tripBoat') return;
     if (d.hop > 0) d.hop -= dt;
     if (d.awakeT > 0) d.awakeT -= dt;
     var sleepy = d.awakeT <= 0 && (june.mode === 'hutSleep' || (nightish() && playTime > 75));
@@ -980,8 +1026,21 @@
       return;
     }
     if (d.state === 'sleep') { d.state = 'sit'; d.wait = 1; }
-    if (june.mode.indexOf('stroll') === 0) {
+    if (dogTrick(dt)) return;
+    if (june.mode.indexOf('stroll') === 0 || june.mode === 'tripWalk' || june.mode === 'grassWalk' || june.mode === 'hutEnter') {
       d.state = dogMove(clamp(june.wx + 11, 12, sw - 12), clamp(june.wy + 3, 160, 194), 21, dt) ? 'sit' : 'walk';
+      return;
+    }
+    if (d.dig) {
+      if (dogMove(d.dig.x + 7, d.dig.y, 20, dt)) {
+        d.state = 'dig'; d.dir = -1; d.dig.t += dt;
+        if (Math.random() < 0.15) sparkles.push({ x: d.dig.x + rnd(-3, 3), y: d.dig.y - 2, t: -0.1 });
+        if (d.dig.t > 2.2) {
+          mounds.push({ x: d.dig.x, y: d.dig.y, item: wpick(Forest.DIG_POOL), t: 0 });
+          d.dig = null; d.state = 'sit'; d.wait = rnd(6, 12); d.hop = 0.4;
+          sfx(function (t) { tone(800, t, 0.07, 'square', 0.04, 1100); });
+        }
+      } else d.state = 'walk';
       return;
     }
     if (d.state === 'walk') { if (!d.wp || dogMove(d.wp.x, d.wp.y, 17, dt)) { d.state = 'sit'; d.wait = rnd(5, 12); } return; }
@@ -997,32 +1056,103 @@
     dog.hop = 0.5; dog.awakeT = 10;
     if (dog.state === 'sleep') { dog.state = 'sit'; dog.wait = 6; }
     hearts.push({ x: dog.x - 3, y: dog.y - 12, t: 0 }, { x: dog.x + 3, y: dog.y - 15, t: -0.15 });
+    if (Math.random() < 0.4) speak('dog', dog);
     sfx(function (t) { tone(900, t, 0.07, 'square', 0.04, 1300); tone(1000, t + 0.1, 0.08, 'square', 0.04, 1400); });
   }
   function drawDog() {
     var d = dog, fr = d.state === 'sleep' ? spr('dog_sleep', 0) : d.state === 'walk' ? spr('dog_walk', Math.floor(T * 6) % 2) : spr('dog_sit', Math.floor(T * 4) % 2);
-    var hop = d.hop > 0 ? Math.abs(Math.sin(d.hop / 0.5 * Math.PI * 2)) * 4 : 0;
+    var hop = d.hop > 0 ? Math.abs(Math.sin(d.hop / 0.5 * Math.PI * 2)) * 4 : (d.state === 'dig' ? (Math.floor(T * 10) % 2) * 2 : 0);
     ctx.drawImage(d.dir > 0 ? fr.f : fr.c, Math.round(d.x - fr.w / 2 + ox), Math.round(d.y - fr.h + 2 - hop + oy));
+  }
+
+  /* the puppy: eager and easily distracted. Zoomies, chasing butterflies, and bringing a stick. */
+  function butterfliesOut() { return cur.star < 0.2 && cur.fly < 0.2 && hourF > 7.5 && hourF < 18; }
+  function startDogTrick() {
+    var d = dog, opts = ['zoom'];
+    if (butterfliesOut()) opts.push('chase', 'chase');
+    if (gifts.length < 2 && ST.boat) opts.push('fetch');
+    var type = pick(opts);
+    if (type === 'zoom') { d.trick = { type: 'zoom', t: 0 }; }
+    else if (type === 'chase') { d.trick = { type: 'chase', t: 0, bf: pick(bflies) }; }
+    else { d.trick = { type: 'fetch', t: 0, phase: 'go' }; }
+    d.awakeT = Math.max(d.awakeT, 6);
+    sfx(function (t) { tone(900, t, 0.06, 'square', 0.035, 1200); tone(1000, t + 0.09, 0.06, 'square', 0.035, 1300); });
+  }
+  function dogTrick(dt) {
+    var d = dog, tr = d.trick;
+    if (!tr) {
+      d.trickT -= dt;
+      if (d.trickT <= 0) {
+        d.trickT = rnd(90, 160);
+        if (d.state !== 'sleep' && !d.dig && !juneAway() && !talk && !finale && !trip && !building && !smores && !nightish()) startDogTrick();
+      }
+      return false;
+    }
+    tr.t += dt;
+    function end() { d.trick = null; d.trickT = rnd(100, 170); d.state = 'sit'; d.wait = 2; }
+    if (tr.type === 'zoom') {
+      if (!tr.p || dogMove(tr.p.x, tr.p.y, 66, dt)) {
+        if (tr.t > 4) { end(); return false; }
+        tr.p = { x: rnd(14 - ox * 0.5, sw - 14 + ox * 0.5), y: rnd(164, 194) };
+      }
+      d.state = 'walk'; return true;
+    }
+    if (tr.type === 'chase') {
+      var b = tr.bf;
+      if (tr.t > 5 || !b || !butterfliesOut()) { end(); return false; }
+      dogMove(b.x, b.y + 3, 36, dt); d.state = 'walk';
+      if (Math.random() < 0.04) d.hop = 0.3;
+      return true;
+    }
+    // fetch: brings June a stick and drops it at her feet
+    var tx = L.benchL + 2, ty = 188;
+    if (tr.phase === 'go') {
+      if (dogMove(tx, ty, 34, dt)) {
+        tr.phase = 'drop'; tr.t = 0; d.state = 'sit'; d.dir = 1;
+        dropGift(L.benchL + 2, 188, 'twig'); hearts.push({ x: d.x, y: d.y - 12, t: 0 });
+        sfx(function (t) { tone(800, t, 0.07, 'square', 0.04, 1100); tone(800, t + 0.12, 0.07, 'square', 0.04, 1100); });
+      } else d.state = 'walk';
+      return true;
+    }
+    d.state = 'sit'; if (tr.t > 2) { end(); return false; }
+    return true;
   }
 
   function initFish() {
     fishes = [];
-    for (var i = 0; i < 5; i++) fishes.push({ x: rnd(12, sw - 12), y: rnd(100, 138), dir: Math.random() < 0.5 ? -1 : 1, sp: rnd(5, 11), col: i % 4, ph: rnd(0, 6), jump: 0, jt: rnd(4, 14) });
+    for (var i = 0; i < 6; i++) fishes.push({ x: rnd(12 - ox, sw - 12 + ox), y: rnd(100, 138), dir: Math.random() < 0.5 ? -1 : 1, sp: rnd(5, 11), col: i % 4, ph: rnd(0, 6), jump: 0, jt: rnd(4, 14), dash: 0, nib: 0 });
   }
+  /* fish: orange is bold and nibbles at bread, white is lazy, yellow shows off by jumping, blue is shy and darts away from splashes */
   function updateFish(dt) {
     if (!fishes.length) initFish();
+    var minX = 8 - ox, maxX = sw + ox - 8;
     fishes.forEach(function (f) {
-      f.x += f.dir * f.sp * dt;
-      if (f.x < 8) { f.x = 8; f.dir = 1; } else if (f.x > sw - 8) { f.x = sw - 8; f.dir = -1; }
+      var sp = f.sp * (f.col === 1 ? 0.5 : 1), q;
+      if (f.dash > 0) { f.dash -= dt; sp *= 3.2; }
+      if (f.col === 3 && f.dash <= 0) {
+        for (q = 0; q < ripples.length; q++) { var rp = ripples[q]; if (rp.t < 0.3 && Math.hypot(rp.x - f.x, rp.y - f.y) < 26) { f.dash = 1; f.dir = rp.x > f.x ? -1 : 1; break; } }
+      }
+      if (f.col === 0 && f.dash <= 0) {
+        var nb = null, nd = 45;
+        breads.forEach(function (b) { if (b.state === 'float') { var d2 = Math.hypot(b.x - f.x, b.y - f.y); if (d2 < nd) { nd = d2; nb = b; } } });
+        if (nb) {
+          f.dir = nb.x > f.x ? 1 : -1; f.y += (nb.y - f.y) * Math.min(1, dt * 1.5);
+          if (nd < 4) { f.nib -= dt; if (f.nib <= 0) { f.nib = 1.4; addRipple(nb.x, nb.y + 1); } sp = 0; }
+        }
+      }
+      f.x += f.dir * sp * dt;
+      if (f.x < minX) { f.x = minX; f.dir = 1; } else if (f.x > maxX) { f.x = maxX; f.dir = -1; }
       f.y = clamp(f.y + Math.sin(T * 0.7 + f.ph) * 3 * dt, 98, 140);
       f.jt -= dt;
-      if (f.jump <= 0 && f.jt <= 0) { f.jump = 0.0001; f.jt = rnd(8, 20); addRipple(f.x, f.y); wishEvent('fish'); }
+      var jmin = f.col === 2 ? 3 : f.col === 1 ? 14 : 8, jmax = f.col === 2 ? 8 : f.col === 1 ? 30 : 20;
+      if (f.jump <= 0 && f.jt <= 0) { f.jump = 0.0001; f.jt = rnd(jmin, jmax); addRipple(f.x, f.y); wishEvent('fish'); }
       if (f.jump > 0) {
         f.jump += dt;
         if (f.jump > 0.7) { f.jump = 0; addRipple(f.x + f.dir * 3, f.y); sfx(function (t) { tone(700, t, 0.05, 'sine', 0.04, 350); }); }
       }
     });
   }
+
   function drawFish() {
     fishes.forEach(function (f) {
       var fr = spr('fish_' + f.col, Math.floor(T * 5 + f.ph) % 2), jy = 0;
@@ -1088,6 +1218,7 @@
     var dx = e.clientX - p.x, dy = e.clientY - p.y, dist = Math.hypot(dx, dy), dtm = Math.max(30, performance.now() - p.t);
     if (dist >= 26 && dtm < 900) { throwStone(dx, dy, clamp(dist / dtm * 1000, 250, 2400)); return; }
     if (p.water) { if (breadCount() >= 5) return; juneToss(p.rx, p.ry); }
+    else if (p.ry > BANK_Y + 2) grassGo(p.rx, p.ry);
   }
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', function () { press = null; });
@@ -1191,6 +1322,1151 @@
   }
   function moreAction(line) { return line && line.more ? { actions: [{ label: LINES.ui.more, fn: openFreeTalk }] } : undefined; }
 
+  /* ---------- hunger: the goose slows down if he has not been fed for a long while ---------- */
+  var forcedHunger = Q.has('hungry') ? parseInt(Q.get('hungry'), 10) : NaN;
+  var fedPending = 0, hungerShown = 0, hungerT = 8;
+  function hungerLevel() {
+    if (!isNaN(forcedHunger)) return clamp(forcedHunger, 0, 3);
+    var h = (Date.now() - (ST.lastFed || Date.now())) / 3600000;
+    return h >= 72 ? 3 : h >= 30 ? 2 : h >= 12 ? 1 : 0;
+  }
+  function hungerMul() { var l = hungerLevel(); return l === 3 ? 0.4 : l === 2 ? 0.6 : l === 1 ? 0.85 : 1; }
+  function hungerTick(dt) {
+    hungerT -= dt; if (hungerT > 0) return; hungerT = 6;
+    var l = hungerLevel();
+    if (l > hungerShown && l >= 1 && !bub.on && !talk && !finale && greetT <= 0 && goose.state === 'idle' && !trip) {
+      hungerShown = l; showBubble({ text: LINES.hunger['l' + l] }, { noCount: true });
+    }
+  }
+
+  /* ---------- things she finds ---------- */
+  var itemSpr = {};
+  Object.keys(Forest.ITEMS).forEach(function (id) { itemSpr[id] = SPR.fromRows(Forest.ITEMS[id]); });
+  function itemCanvas(id) { return goodieSpr[id] || itemSpr[id]; }
+  function addItem(id, n) { ST.inv[id] = (ST.inv[id] || 0) + (n || 1); save(); }
+  function wpick(pool, rf) {
+    var tot = 0, i; pool.forEach(function (p) { tot += p.w; });
+    var r = (rf ? rf() : Math.random()) * tot;
+    for (i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) return pool[i].id; }
+    return pool[0].id;
+  }
+  function paint(canvas, id) {
+    canvas.width = 12; canvas.height = 12;
+    var x = canvas.getContext('2d'); x.clearRect(0, 0, 12, 12);
+    if (id) x.drawImage(itemCanvas(id), 1, 1);
+  }
+  function giveItem(id, sx, sy) { // sx, sy are in scene units (what the sprite blitters expect)
+    addItem(id, 1);
+    var pr = $('pouchBtn').getBoundingClientRect();
+    flyList.push({ kind: 'item', id: id, sx: sx, sy: sy, ex: (pr.left + pr.width / 2) / scale - ox, ey: (pr.top + pr.height / 2) / scale - oy, t: 0, arc: 20 });
+    sparkles.push({ x: sx, y: sy - 4, t: 0 }, { x: sx + 5, y: sy - 8, t: -0.1 });
+    sCollect();
+  }
+
+  /* ---------- the puppy buries things by the pond ---------- */
+  var mounds = [], digT = 70;
+  function updateMounds(dt) {
+    digT -= dt;
+    if (digT <= 0) {
+      digT = rnd(70, 130);
+      if (!dog.dig && mounds.length < 2 && !nightish() && dog.state !== 'sleep' && !juneAway() && !trip && !building) dog.dig = { x: rnd(18, sw - 18), y: rnd(166, 194), t: 0 };
+    }
+    mounds.forEach(function (m) { m.t += dt; if (m.t > 2.4) { m.t = 0; sparkles.push({ x: m.x + rnd(-3, 3), y: m.y - 3, t: 0 }); } });
+  }
+  function digUp(m) {
+    mounds.splice(mounds.indexOf(m), 1);
+    giveItem(m.item, m.x, m.y - 4); wishEvent('dig');
+    dog.hop = 0.5; dog.awakeT = 6; hearts.push({ x: dog.x, y: dog.y - 12, t: 0 });
+  }
+  function drawMounds() {
+    var ms = spr('mound', 0);
+    return mounds.map(function (m) { return { y: m.y, f: function () { blitO(ms, m.x - 4, m.y - 4); } }; });
+  }
+
+  /* ---------- the goose builds things himself once she has what he needs ---------- */
+  var building = null, buildPending = '';
+  function haveNeeds(n) { for (var k in n) if ((ST.inv[k] || 0) < n[k]) return false; return true; }
+  function buildDef(id) { return Forest.BUILDS.filter(function (b) { return b.id === id; })[0]; }
+  function nextBuild() {
+    if (Q.get('boat') === '1' && !ST.boat) return 'boat';
+    if (!ST.boat) return ST.goodies.length >= buildDef('boat').goodies ? 'boat' : '';
+    if (!ST.fire && haveNeeds(buildDef('fire').needs)) return 'fire';
+    if (ST.fire && !ST.feeder && haveNeeds(buildDef('feeder').needs)) return 'feeder';
+    return '';
+  }
+  function siteOf(id) { return id === 'boat' ? { x: L.boatX, sy: BANK_Y - 6, water: true } : id === 'fire' ? { x: L.fireX, sy: 188 } : { x: L.feederX, sy: 187 }; }
+  function startBuild(id) {
+    buildPending = ''; hideBubble();
+    var s = siteOf(id);
+    building = { id: id, t: 0, phase: 'go', tapT: 0, s: s };
+    goose.state = 'path';
+    goose.path = s.water ? [{ x: s.x - 14, y: s.sy, sp: 30 }] : [{ x: s.x - 14, y: BANK_Y - 3, sp: 34 }, { x: s.x - 14, y: s.sy, sp: 26 }];
+    goose.done = function () { goose.state = 'wait'; goose.t = 0; goose.wt = 999; goose.placing = true; goose.done = null; building.phase = 'hammer'; building.t = 0; };
+    dog.dig = null; dog.state = 'walk'; dog.wp = { x: s.x + 14, y: Math.max(172, s.sy - 2) };
+  }
+  function buildAlpha(id) { return building && building.id === id && !ST[id] ? clamp(building.t / 4, 0, 1) : 1; }
+  function updateBuild(dt) {
+    if (!building || building.phase !== 'hammer') return;
+    var s = building.s;
+    building.t += dt; building.tapT -= dt;
+    if (building.tapT <= 0) {
+      building.tapT = 0.5;
+      sparkles.push({ x: s.x + rnd(-8, 8), y: (s.water ? BANK_Y : s.sy) - rnd(4, 12), t: 0 });
+      sfx(function (t) { tone(240, t, 0.05, 'square', 0.05, 160); });
+    }
+    if (building.t >= 4.5) {
+      var id = building.id, def = buildDef(id), k;
+      if (def.needs) for (k in def.needs) ST.inv[k] = Math.max(0, (ST.inv[k] || 0) - def.needs[k]);
+      ST[id] = true; if (id === 'feeder') ST.seeds = 4;
+      save(); building = null; goose.placing = false;
+      if (s.water) toIdle(); else gooseWalk([{ x: goose.x, y: BANK_Y - 3, sp: 28 }, { x: goose.x, y: 122, sp: 26 }], toIdle);
+      for (var i = 0; i < 5; i++) sparkles.push({ x: s.x + rnd(-10, 10), y: (s.water ? BANK_Y : s.sy) - rnd(2, 14), t: -i * 0.1 });
+      sCollect(); dog.hop = 0.5; sayAt(goose, LINES.build[id], { noCount: true, dur: 10 });
+    }
+  }
+
+  /* ---------- the campfire and s'mores ---------- */
+  var smores = null;
+  function fireLit() { return ST.fire && !building && (cur.lamp > 0.25 || !!smores); }
+  function drawFire(alpha) {
+    var ps = spr('fire_pit', 0), x = Math.round(L.fireX - ps.w / 2 + ox), y = Math.round(L.fireY - ps.h + oy);
+    if (alpha < 1) ctx.globalAlpha = alpha;
+    ctx.drawImage(ps.c, x, y); ctx.globalAlpha = 1;
+    if (fireLit()) { var fr = spr('flame', Math.floor(T * 8) % 3); ctx.drawImage(fr.c, Math.round(L.fireX - fr.w / 2 + ox), y - fr.h + 4); }
+  }
+  function kitReady() { return (ST.inv.marshmallow || 0) >= 1 && (ST.inv.chocolate || 0) >= 1 && (ST.inv.cracker || 0) >= 1; }
+  function askFire() {
+    if (!ST.fire || smores || juneAway() || trip || building || talk || finale || scene !== 'pond') return;
+    if (kitReady()) showBubble({ text: LINES.smores.ask }, { noCount: true, dur: 14, actions: [{ label: LINES.ui.roast, fn: startSmores }, { label: LINES.ui.later }] });
+    else showBubble({ text: pick(LINES.smores.need) }, { noCount: true, dur: 8 });
+  }
+  function startSmores() {
+    if (smores || juneAway() || !kitReady()) return;
+    releasePending(); hideBubble();
+    smores = { t: 0 };
+    june.wx = L.juneL + 8; june.wy = 182; june.fdir = -1; june.mode = 'smoresWalk';
+    goose.state = 'path'; goose.path = [{ x: L.fireX - 14, y: BANK_Y - 3, sp: 34 }, { x: L.fireX - 14, y: 188, sp: 26 }];
+    goose.done = function () { goose.state = 'wait'; goose.t = 0; goose.wt = 999; goose.placing = true; goose.done = null; goose.dir = 1; };
+    dog.dig = null; dog.state = 'walk'; dog.wp = { x: L.fireX + 2, y: 192 };
+  }
+  function updateSmores(dt) {
+    if (!smores || june.mode !== 'smoresRoast') return;
+    smores.t += dt;
+    if (smores.t >= 7.5) {
+      ST.inv.marshmallow--; ST.inv.chocolate--; ST.inv.cracker--; ST.smores = (ST.smores || 0) + 1; ST.diamonds++; save();
+      smores = null; june.mode = 'strollBack'; goose.placing = false; wishEvent('smores');
+      gooseWalk([{ x: goose.x, y: BANK_Y - 3, sp: 28 }, { x: goose.x, y: 122, sp: 26 }], toIdle);
+      hearts.push({ x: L.fireX, y: L.fireY - 14, t: 0 }, { x: L.fireX + 6, y: L.fireY - 18, t: -0.2 }); sCollect();
+      sayAt(goose, pick(LINES.smores.done), { noCount: true, dur: 8 });
+    }
+  }
+  function drawStick() {
+    var p = clamp(smores.t / 5, 0, 1), hx = june.wx - 6 + ox, hy = june.wy - 9 + oy, tx = L.fireX + 3 + ox, ty = L.fireY - 8 + oy;
+    ctx.fillStyle = '#8a5a30'; pxLine(hx, hy, tx, ty);
+    if (smores.t < 5.8) { ctx.fillStyle = rgb(mixc([255, 250, 240], [120, 70, 30], p)); ctx.fillRect(Math.round(tx) - 1, Math.round(ty) - 1, 3, 3); }
+  }
+
+  /* ---------- each animal has a personality; tapping one gets a line in its own voice ---------- */
+  var speakCool = 0, muttT = 200;
+  function speak(key, e) {
+    if (T < speakCool || talk || finale || scene !== 'pond' || bub.on) return;
+    var l = LINES.animals[key]; if (!l) return;
+    speakCool = T + 7;
+    sayAt({ x: e.x, y: e.y, topH: 14 }, pick(l), { noCount: true, dur: 4.5 });
+  }
+
+  /* ---------- the bird feeder, the birds and their gifts ---------- */
+  var birds = [], gifts = [], birdT = 20;
+  function birdDef(id) { return Forest.BIRDS.filter(function (b) { return b.id === id; })[0]; }
+  function edgeX(side) { return side < 0 ? -ox - 8 : lw - ox + 8; }
+  function drawFeeder(alpha) {
+    var fs = spr('feeder', 0), x = Math.round(L.feederX - fs.w / 2 + ox), y = Math.round(L.feederY - fs.h + 2 + oy);
+    if (alpha < 1) ctx.globalAlpha = alpha;
+    ctx.drawImage(fs.c, x, y); ctx.globalAlpha = 1;
+  }
+  function spawnBird() {
+    var list = Forest.BIRDS.filter(function (b) { return (ST.feeds || 0) >= b.feeds; }), tot = 0, i, sp;
+    list.forEach(function (b) { tot += b.w; });
+    var r = Math.random() * tot; sp = list[0];
+    for (i = 0; i < list.length; i++) { r -= list[i].w; if (r <= 0) { sp = list[i]; break; } }
+    var side = Math.random() < 0.5 ? -1 : 1, onTray = sp.id === 'red' ? true : Math.random() < 0.6;
+    birds.push({ kind: sp.id, x: edgeX(side), y: rnd(-oy * 0.5 + 20, 70), state: 'in', t: 0, tx: L.feederX + (onTray ? rnd(-4, 4) : rnd(-16, 10)), ty: onTray ? L.feederY - 17 : L.feederY + 3, dir: side < 0 ? 1 : -1, side: side, songT: 1.5 });
+    ST.seeds = Math.max(0, (ST.seeds || 0) - 1); save();
+  }
+  function dropGift(x, y, id) {
+    if (gifts.length >= 3) return;
+    gifts.push({ x: x + rnd(-6, 6), y: y, id: id || wpick(Forest.GIFT_POOL), t: 0 });
+    sparkles.push({ x: x, y: y - 6, t: 0 });
+  }
+  function birdSong(b) {
+    var base = rnd(2000, 2500);
+    sfx(function (t) { [1, 1.25, 1.5, 1.25].forEach(function (m, i) { tone(base * m, t + i * 0.12, 0.09, 'sine', 0.025, base * m * 1.08); }); });
+    hearts.push({ x: b.x, y: b.y - 8, t: 0 });
+  }
+  function leaveBird(b) {
+    var def = birdDef(b.kind);
+    b.state = 'out'; b.t = 0; b.dir = b.side;
+    if (b.bolt) { b.x += 0; }
+    else {
+      ST.feeds = (ST.feeds || 0) + 1; ST.bond[b.kind] = (ST.bond[b.kind] || 0) + 1; save();
+      if (ST.bond[b.kind] % def.gift === 0) dropGift(L.feederX, L.feederY + 6, b.kind === 'red' ? pick(['ribbon', 'pearl', 'feather']) : undefined);
+    }
+  }
+  function updateBirds(dt) {
+    gifts.forEach(function (gf) { gf.t += dt; if (gf.t > 2.5) { gf.t = 0; sparkles.push({ x: gf.x + rnd(-3, 3), y: gf.y - rnd(6, 10), t: 0 }); } });
+    if (ST.feeder) {
+      birdT -= dt;
+      if (birdT <= 0) {
+        birdT = rnd(25, 55);
+        if ((ST.seeds || 0) > 0 && birds.length < 3 && !nightish() && !talk && !finale && !trip) spawnBird();
+      }
+    }
+    for (var i = birds.length - 1; i >= 0; i--) {
+      var b = birds[i], def = birdDef(b.kind);
+      b.t += dt;
+      if (b.state === 'in') {
+        var dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy), st = 58 * dt;
+        b.dir = dx < 0 ? -1 : 1;
+        if (d <= st) { b.x = b.tx; b.y = b.ty; b.state = 'perch'; b.t = 0; b.stay = rnd(def.stay[0], def.stay[1]); } else { b.x += dx / d * st; b.y += dy / d * st; }
+      } else if (b.state === 'perch') {
+        if (def.shy && (Math.hypot(dog.x - b.x, dog.y - b.y) < def.shy || Math.hypot(goose.x - b.x, goose.y - b.y) < def.shy)) { b.bolt = true; leaveBird(b); sfx(function (t) { tone(3000, t, 0.05, 'sine', 0.03, 3600); }); continue; }
+        if (def.sing) { b.songT -= dt; if (b.songT <= 0) { b.songT = rnd(4, 6); birdSong(b); } }
+        if (b.t > b.stay) leaveBird(b);
+      } else {
+        b.x += b.dir * (b.bolt ? 90 : 62) * dt; b.y -= (b.bolt ? 40 : 24) * dt;
+        if (b.x < -ox - 14 || b.x > lw - ox + 14 || b.y < -oy - 10) birds.splice(i, 1);
+      }
+    }
+  }
+  function tapFeeder() {
+    var low = (ST.seeds || 0) < 3;
+    ST.seeds = 6; save();
+    for (var i = 0; i < 4; i++) sparkles.push({ x: L.feederX + rnd(-8, 8), y: L.feederY - rnd(8, 18), t: -i * 0.06 });
+    sfx(function (t) { tone(1800, t, 0.03, 'sine', 0.03); tone(2100, t + 0.05, 0.03, 'sine', 0.03); tone(1900, t + 0.1, 0.03, 'sine', 0.03); });
+    if (low) { wishEvent('feeder'); if (!talk && !finale) sayAt(goose, pick(LINES.feeder.fed), { noCount: true, dur: 5 }); }
+    birdT = Math.min(birdT, 6);
+  }
+  function petBird(b) {
+    hearts.push({ x: b.x, y: b.y - 8, t: 0 });
+    sfx(function (t) { var f = rnd(2600, 3300); tone(f, t, 0.06, 'sine', 0.03, f * 1.2); });
+    if (b.state === 'perch') speak(b.kind, b);
+  }
+  function collectGift(g) {
+    gifts.splice(gifts.indexOf(g), 1);
+    giveItem(g.id, g.x, g.y - 6);
+  }
+  function drawBird(b) {
+    var idx = b.state === 'perch' ? (Math.floor(b.t * (b.kind === 'sparrow' ? 4 : 2.5)) % 2 === 0 ? 1 : 0) : 2;
+    var sprite = spr('bird_' + b.kind, idx), hop = b.state === 'perch' && b.ty > L.feederY && b.kind === 'sparrow' ? Math.abs(Math.sin(T * 6)) * 1.5 : 0;
+    ctx.drawImage(b.dir < 0 ? sprite.f : sprite.c, Math.round(b.x - sprite.w / 2 + ox), Math.round(b.y - sprite.h - hop + oy));
+  }
+
+  /* ---------- little visitors that come once the birds have been fed for a while ---------- */
+  var visitor = null, visitT = 100;
+  function inHours(rs) { return rs.some(function (r) { return hourF >= r[0] && hourF < r[1]; }); }
+  function spawnVisitor() {
+    var list = Forest.VISITORS.filter(function (v) { return (ST.feeds || 0) >= v.feeds && inHours(v.hours); });
+    if (!list.length) return;
+    var v = pick(list), side = Math.random() < 0.5 ? -1 : 1;
+    visitor = { id: v.id, x: edgeX(side) - side * 2, y: rnd(168, 192), state: 'in', tx: rnd(sw * 0.3, sw * 0.8), t: 0, stay: v.id === 'fox' ? rnd(30, 50) : rnd(40, 80), pets: 0, dir: side < 0 ? 1 : -1, side: side, hop: 0, gifted: false, scared: 0, ball: 0, pounce: rnd(3, 6), fleeDir: 1 };
+    if (ST.seenV.indexOf(v.id) < 0) { ST.seenV.push(v.id); save(); setTimeout(function () { if (visitor && !talk && !finale && scene === 'pond') sayAt(goose, LINES.visitors.first[v.id], { noCount: true, dur: 8 }); }, 2500); }
+  }
+  function updateVisitor(dt) {
+    if (!visitor) {
+      visitT -= dt;
+      if (visitT <= 0) { visitT = rnd(150, 280); if (!talk && !finale && !trip && Math.random() < 0.75) spawnVisitor(); }
+      return;
+    }
+    var v = visitor; v.t += dt; if (v.hop > 0) v.hop -= dt;
+    function near(e, r) { return Math.hypot(e.x - v.x, e.y - v.y) < r; }
+    var minX = -ox + 6, maxX = lw - ox - 6;
+    if (v.id === 'bunny' && v.state !== 'out') {   // shy: bolts when the goose or the puppy comes close
+      if (v.scared > 0) { v.scared -= dt; v.x = clamp(v.x + v.fleeDir * 42 * dt, minX, maxX); return; }
+      if (v.pets < 3 && (near(goose, 30) || near(dog, 30))) { v.scared = 1.6; v.fleeDir = v.x >= (near(dog, 30) ? dog.x : goose.x) ? 1 : -1; v.dir = v.fleeDir; return; }
+    }
+    if (v.id === 'hedgehog' && v.state !== 'out') {   // grumpy: curls into a ball until it trusts her
+      if (v.ball > 0) { v.ball -= dt; return; }
+      if (v.pets < 3 && (near(goose, 26) || near(dog, 26))) { v.ball = 3; return; }
+    }
+    if (v.id === 'fox' && v.state !== 'out') {   // playful: pounces about and starts games with the puppy
+      v.pounce -= dt;
+      if (v.pounce <= 0) {
+        v.pounce = rnd(4, 8); v.hop = 0.4; sfx(function (t) { tone(600, t, 0.08, 'sine', 0.04, 900); });
+        if (near(dog, 70) && dog.state !== 'sleep' && !dog.trick && !dog.dig) { dog.trick = { type: 'zoom', t: 0 }; dog.awakeT = 8; }
+      }
+    }
+    if (v.state === 'in') {
+      var dx = v.tx - v.x; v.dir = dx < 0 ? -1 : 1;
+      if (Math.abs(dx) < 1.5) { v.state = 'idle'; v.t = 0; } else v.x += v.dir * (v.id === 'fox' ? 22 : 16) * dt;
+    } else if (v.state === 'idle') {
+      if (v.t > v.stay) { v.state = 'out'; v.dir = v.side; }
+    } else { v.x += v.dir * 18 * dt; if (v.x < -ox - 14 || v.x > lw - ox + 14) visitor = null; }
+  }
+  function petVisitor() {
+    var v = visitor; if (!v) return;
+    if (v.id === 'bunny' && v.scared > 0) return;
+    if (v.ball > 0) { v.ball = 0; }
+    v.hop = 0.4; v.pets++; hearts.push({ x: v.x, y: v.y - 12, t: 0 }, { x: v.x + 4, y: v.y - 15, t: -0.15 });
+    sfx(function (t) { tone(520, t, 0.1, 'sine', 0.04, 700); });
+    wishEvent('visitor');
+    if (v.pets === 1 || Math.random() < 0.5) { speakCool = 0; speak(v.id, v); }
+    var need = v.id === 'fox' ? 2 : 3;
+    if (v.pets >= need && !v.gifted) { v.gifted = true; dropGift(v.x, v.y + 2, v.id === 'bunny' ? 'clover' : v.id === 'hedgehog' ? 'mushroom' : pick(['button', 'pearl'])); }
+  }
+  function drawVisitor() {
+    var v = visitor, moving = v.state !== 'idle' || v.scared > 0;
+    var fr = v.ball > 0 ? spr('visit_hedgehog_ball', 0) : spr('visit_' + v.id, moving ? Math.floor(T * 5) % 2 : (Math.floor(T * 1.2) % 2));
+    var hop = v.hop > 0 ? Math.abs(Math.sin(v.hop / 0.4 * Math.PI)) * 4 : (moving && v.ball <= 0 ? (Math.floor(T * 5) % 2) * 1 : 0);
+    ctx.drawImage(v.dir < 0 ? fr.f : fr.c, Math.round(v.x - fr.w / 2 + ox), Math.round(v.y - fr.h + 2 - hop + oy));
+  }
+
+  /* ---------- the sky: cousins flying over, a balloon, shooting stars ---------- */
+  var flock = null, balloon = null, shoot = null, skyT = { flock: 25, balloon: 90, shoot: 20 };
+  function skyTop() { return -oy + 8; }
+  function updateSky(dt) {
+    skyT.flock -= dt; skyT.balloon -= dt; skyT.shoot -= dt;
+    if (skyT.flock <= 0 && !flock) {
+      skyT.flock = rnd(40, 80);
+      if (!nightish()) { var side = Math.random() < 0.5 ? -1 : 1; flock = { x: edgeX(side) - side * 14, y: rnd(skyTop() + 6, 50), dir: side < 0 ? 1 : -1, n: rint(3, 5), t: 0 }; }
+    }
+    if (flock) { flock.t += dt; flock.x += flock.dir * 20 * dt; flock.y += Math.sin(flock.t * 0.8) * 3 * dt; if (flock.x < -ox - 40 || flock.x > lw - ox + 40) flock = null; }
+    if (skyT.balloon <= 0 && !balloon) {
+      skyT.balloon = rnd(150, 260);
+      if (hourF > 7 && hourF < 18) balloon = { x: -ox - 12, y: rnd(skyTop() + 16, 46), t: 0 };
+    }
+    if (balloon) { balloon.t += dt; balloon.x += 6 * dt; if (balloon.x > lw - ox + 14) balloon = null; }
+    if (skyT.shoot <= 0 && !shoot) {
+      skyT.shoot = rnd(25, 60);
+      if (cur.star > 0.7) shoot = { x: rnd(-ox + 30, lw - ox - 30), y: skyTop() + rnd(2, 24), vx: rnd(60, 90) * (Math.random() < 0.5 ? -1 : 1), vy: rnd(25, 40), t: 0 };
+    }
+    if (shoot) { shoot.t += dt; shoot.x += shoot.vx * dt; shoot.y += shoot.vy * dt; if (shoot.t > 1.6) shoot = null; }
+  }
+  function drawSkyLife() {
+    var i;
+    if (balloon) {
+      var bs = spr('balloon', 0), by = balloon.y + Math.sin(balloon.t * 0.6) * 3;
+      ctx.drawImage(bs.c, Math.round(balloon.x - bs.w / 2 + ox), Math.round(by + oy));
+    }
+    if (flock) {
+      var fb = spr('flockbird', Math.floor(T * 5 + flock.t) % 2);
+      for (i = 0; i < flock.n; i++) {
+        var k = Math.ceil(i / 2), fx = flock.x - flock.dir * k * 6, fy = flock.y + (i === 0 ? 0 : (i % 2 ? 1 : -1) * k * 3);
+        ctx.drawImage(fb.c, Math.round(fx + ox), Math.round(fy + oy + Math.sin(T * 5 + i) * 0.8));
+      }
+    }
+    if (shoot) {
+      var a = clamp(1 - shoot.t / 1.6, 0, 1);
+      ctx.globalAlpha = a; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(shoot.x + ox), Math.round(shoot.y + oy), 2, 2);
+      ctx.globalAlpha = a * 0.5; var nx = Math.sign(shoot.vx), tx0 = shoot.x - nx * 3;
+      for (i = 1; i < 7; i++) { ctx.fillRect(Math.round(tx0 - nx * i * 2 + ox), Math.round(shoot.y - i * 1.2 * (shoot.vy / Math.abs(shoot.vx)) + oy), 1, 1); }
+      ctx.globalAlpha = 1;
+    }
+  }
+  function tapSky(rx, ry, hr) {
+    var today = ymd(new Date());
+    if (shoot && Math.hypot(rx - shoot.x, ry - shoot.y) < Math.max(18, hr * 1.2)) {
+      if (ST.starDate !== today) { ST.starDate = today; ST.diamonds++; save(); sCollect(); for (var s = 0; s < 4; s++) sparkles.push({ x: shoot.x + rnd(-6, 6), y: shoot.y + rnd(-4, 4), t: -s * 0.08 }); sayAt(goose, pick(LINES.sky.wish), { noCount: true, dur: 6 }); }
+      shoot = null; return true;
+    }
+    if (balloon) {
+      var by = balloon.y + Math.sin(balloon.t * 0.6) * 3;
+      if (Math.hypot(rx - balloon.x, ry - (by + 8)) < Math.max(16, hr * 1.1)) {
+        if (ST.balloonDate !== today) { ST.balloonDate = today; save(); dropGift(clamp(balloon.x, 20, sw - 20), 186); sayAt(goose, pick(LINES.sky.balloon), { noCount: true, dur: 6 }); }
+        else if (T > speakCool) { speakCool = T + 6; sayAt(goose, pick(LINES.sky.balloonAgain), { noCount: true, dur: 4 }); }
+        hearts.push({ x: balloon.x, y: by + 6, t: 0 }); return true;
+      }
+    }
+    if (flock) {
+      for (var i = 0; i < flock.n; i++) {
+        var k = Math.ceil(i / 2), fx = flock.x - flock.dir * k * 6, fy = flock.y + (i === 0 ? 0 : (i % 2 ? 1 : -1) * k * 3);
+        if (Math.hypot(rx - fx, ry - fy) < Math.max(14, hr)) {
+          sHonk(); hearts.push({ x: fx, y: fy - 4, t: 0 });
+          if (T > speakCool) { speakCool = T + 6; sayAt(goose, pick(LINES.sky.flock), { noCount: true, dur: 4 }); }
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /* ---------- the boat trip, from the pond side ---------- */
+  var scene = 'pond', fadeA = 0, fadeDir = 0, fadeCb = null, trip = null;
+  function doFade(cb) { fadeDir = 1; fadeCb = cb; }
+  function updateFade(dt) {
+    if (fadeDir === 0) return;
+    fadeA = clamp(fadeA + fadeDir * dt * 3.2, 0, 1);
+    if (fadeDir === 1 && fadeA >= 1) { fadeDir = -1; var cb = fadeCb; fadeCb = null; if (cb) cb(); }
+    else if (fadeDir === -1 && fadeA <= 0) fadeDir = 0;
+  }
+  function drawFade() {
+    if (fadeA <= 0.01) return;
+    ctx.fillStyle = 'rgba(8,12,30,' + fadeA.toFixed(3) + ')'; ctx.fillRect(0, 0, lw, lh);
+  }
+  function present() {
+    vctx.clearRect(0, 0, cv.width, cv.height);
+    vctx.drawImage(lc, 0, 0, lw, lh, 0, 0, lw * pxK, lh * pxK);
+  }
+  var tripQueued = false;
+  function askRow() {
+    if (!ST.boat || trip || scene !== 'pond' || finale) return;
+    if (talk) closeTalk();
+    showBubble({ text: LINES.forest.rowAsk }, { noCount: true, dur: 14, actions: [{ label: LINES.ui.go, fn: startTrip }, { label: LINES.ui.later }] });
+  }
+  function startTrip() {
+    if (trip || scene !== 'pond' || finale || fadeDir !== 0 || june.fading) return;
+    if (building) { tripQueued = true; sayAt(goose, LINES.boat.busy, { noCount: true, dur: 5 }); return; }   // wait until he has finished building
+    tripQueued = false;
+    if (smores) { smores = null; goose.placing = false; }
+    releasePending(); hideBubble();
+    trip = { phase: 'walk', t: 0, by: BANK_Y - 3 };
+    var m = june.mode;
+    if (m === 'hutSleep' || m === 'walkBack' || m === 'walkOut') { june.wx = L.hutCX; june.wy = 182; }
+    else if (!juneAway()) { june.wx = L.juneL + 8; june.wy = 182; }
+    june.fdir = june.wx < L.boatX ? 1 : -1; june.mode = 'tripWalk'; june.nap = 0; june.fading = false;
+  }
+  function tripBoard() {
+    june.mode = 'tripBoat'; trip.phase = 'row'; trip.t = 0;
+    goose.state = 'path'; goose.path = [{ x: L.boatX + 18, y: BANK_Y - 6, sp: 36 }, { x: L.boatX + 18, y: 104, sp: 30 }];
+    goose.done = function () { goose.state = 'wait'; goose.t = 0; goose.wt = 99; goose.done = null; };
+  }
+  function updateTrip(dt) {
+    if (tripQueued && !building && !trip && scene === 'pond' && !finale) startTrip();
+    if (!trip || trip.phase !== 'row') return;
+    trip.t += dt;
+    var u = clamp(trip.t / 5, 0, 1), e = u * u * (3 - 2 * u);
+    trip.by = lerp(BANK_Y - 3, 92, e);
+    trip.rt = (trip.rt || 0) - dt;
+    if (trip.rt <= 0) { trip.rt = 0.35; ripples.push({ x: L.boatX, y: trip.by + 3, t: 0, mini: true }); }
+    if (u >= 1 && fadeDir === 0) doFade(function () { trip = null; enterForest(); });
+  }
+  function pxLine(x0, y0, x1, y1) {
+    var dx = x1 - x0, dy = y1 - y0, n = Math.max(Math.abs(dx), Math.abs(dy), 1);
+    for (var i = 0; i <= n; i++) ctx.fillRect(Math.round(x0 + dx * i / n), Math.round(y0 + dy * i / n), 1, 1);
+  }
+  function drawBoat(alpha) {
+    var rowing = trip && trip.phase === 'row', by0 = rowing ? trip.by : BANK_Y - 3, bs = spr('boat', 0);
+    var bx = Math.round(L.boatX - bs.w / 2 + ox), by = Math.round(by0 - bs.h + 3 + oy);
+    if (alpha !== undefined && alpha < 1) ctx.globalAlpha = Math.max(0, alpha);
+    if (rowing) {
+      var jr = spr('june_row', 0), dr = spr('dog_row', Math.floor(T * 4) % 2 ? 0 : 0);
+      ctx.drawImage(jr.f, bx + 4, by - jr.h + 5);
+      ctx.drawImage(dr.f, bx + bs.w - dr.w - 2, by - dr.h + 5);
+    }
+    ctx.drawImage(bs.c, bx, by);
+    ctx.globalAlpha = 1;
+    if (rowing) {
+      var ph = Math.sin(T * 3.4), px = bx + 11, py = by + 1;
+      ctx.fillStyle = '#a8723f'; pxLine(px - 3, py - 5, px + ph * 4, py + 6);
+      ctx.fillStyle = '#d9b38c'; pxLine(px + ph * 4, py + 6, px + ph * 6, py + 9);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(Math.round(px + ph * 6) - 1, by + 10, 3, 1);
+    }
+  }
+
+  /* ---------- the ingredient adventure: no ingredients? go and find them in the forest ---------- */
+  function recipeById(id) { return Hut.RECIPES.filter(function (r) { return r.id === id; })[0]; }
+  function questRecipe() { return ST.quest ? recipeById(ST.quest.id) : null; }
+  function wantedItems() {
+    var r = questRecipe(), w = {};
+    if (r) for (var k in r.needs) if ((ST.inv[k] || 0) < r.needs[k]) w[k] = true;
+    return w;
+  }
+  function updateQuestBar() {
+    var bar = $('questBar'), r = questRecipe();
+    if (!r || scene !== 'forest') { bar.style.display = 'none'; return; }
+    bar.innerHTML = '';
+    var t = document.createElement('div'); t.className = 'qtitle'; t.textContent = LINES.quest.title.replace('{x}', LINES.dishes[r.id]); bar.appendChild(t);
+    var row = document.createElement('div'); row.className = 'qchips';
+    Object.keys(r.needs).forEach(function (k) {
+      var chip = document.createElement('span'), c2 = document.createElement('canvas'), b = document.createElement('b'), have = Math.min(ST.inv[k] || 0, r.needs[k]);
+      c2.width = 12; c2.height = 12; paint(c2, k); chip.appendChild(c2); b.textContent = have + '/' + r.needs[k];
+      if (have >= r.needs[k]) chip.className = 'got';
+      chip.appendChild(b); row.appendChild(chip);
+    });
+    bar.appendChild(row); bar.style.display = 'block';
+  }
+  function startQuest(id) {
+    var r = recipeById(id), k, any = false;
+    if (!r) return;
+    for (k in r.needs) if ((ST.inv[k] || 0) < r.needs[k]) any = true;
+    if (!any) return;
+    if (!ST.boat) { hutSay(LINES.quest.noBoat); return; }
+    ST.quest = { id: id, stage: 'forest' }; save();
+    hutSay(pick(LINES.quest.start));
+    var rx = hutRx();
+    hutWalk(rx + Hut.SPOTS.door.stand, function () { doFade(function () { leaveHut(); startTrip(); }); });
+  }
+  // the puppy hides the missing ingredients in the forest (and a few other things), in fresh places
+  function applyQuest() {
+    var r = questRecipe();
+    if (!r || ST.quest.stage !== 'forest' || ST.quest.applied === ymd(new Date())) return;
+    ST.quest.applied = ymd(new Date());
+    var need = [], k, i;
+    for (k in r.needs) for (i = (ST.inv[k] || 0); i < r.needs[k]; i++) need.push(k);
+    if (!need.length) return;
+    var ids = [], spots = {}, total = Math.min(world.spots.length, Math.max(6, need.length + 3));
+    for (i = 0; i < world.spots.length; i++) ids.push(i);
+    var picks = [];
+    while (picks.length < total && ids.length) picks.push(ids.splice(Math.floor(Math.random() * ids.length), 1)[0]);
+    picks.forEach(function (id, n) { spots[id] = n < need.length ? need[n] : wpick(Forest.FOREST_POOL); });
+    ST.forest = { date: ymd(new Date()), spots: spots, found: {}, checked: {} }; save();
+  }
+  function questCheck() {
+    var r = questRecipe();
+    updateQuestBar();
+    if (!r || ST.quest.stage !== 'forest' || !haveNeeds(r.needs)) return;
+    ST.quest.stage = 'return'; save();
+    bubAnchor = anchorOf(guideOf());
+    showBubble({ text: LINES.quest.done.replace('{x}', LINES.dishes[r.id]) }, { noCount: true, dur: 20, actions: [
+      { label: LINES.ui.rowHome, fn: function () { doFade(leaveForest); } }, { label: LINES.ui.stay }
+    ] });
+  }
+
+  /* ---------- the forest, seen from above ---------- */
+  var fw = 360, fh = 480, world = null, nav = null, cam = { x: 0, y: 0 }, fbg = document.createElement('canvas'), fbgDirty = true;
+  var spotSpr = Forest.makeSpots(SPR.outlined);
+  var fj = { x: 0, y: 0, dir: 'n', path: null, cb: null, mv: false, trail: [], hold: 0, topH: 16, startle: 0 };
+  var fd = { x: 0, y: 0, dir: 'n', path: null, job: null, mv: false, hop: 0, topH: 12 };
+  var fg = { x: 0, y: 0, dir: 'n', path: null, job: null, mv: false, joined: false, topH: 14 };
+  var snakes = [], frogs = [], squirrels = [], glints = {}, fpops = [], leaves = [], guideT = 20, chirpT = 3, vigC = null, vigKey = '';
+  function anchorOf(e) {
+    if (!e._a) e._a = { get x() { return e.x - cam.x - ox; }, get y() { return e.y - cam.y - oy; }, get topH() { return e.topH; } };
+    return e._a;
+  }
+  function sayAt(e, text, opts) { bubAnchor = scene === 'forest' && e !== goose ? anchorOf(e) : scene === 'hut' ? anchorH(e) : e; showBubble({ text: text }, opts || { noCount: true }); }
+  function rebuildForest() {
+    fw = Math.max(360, lw + 24); fh = Math.max(480, lh + 24);
+    world = Forest.build(fw, fh); nav = Forest.makeNav(world); fbgDirty = true;
+    if (scene === 'forest') { fj.x = world.landing.x; fj.y = world.landing.y; fj.path = null; fj.trail = []; }
+  }
+  function fsp(wx, wy, delay) { sparkles.push({ x: wx - cam.x - ox, y: wy - cam.y - oy, t: delay || 0 }); }
+  function fheart(wx, wy, delay) { hearts.push({ x: wx - cam.x - ox, y: wy - cam.y - oy, t: delay || 0 }); }
+  function ensureForest() {
+    var today = ymd(new Date()), f = ST.forest;
+    if (f.date === today && f.spots) return;
+    var r = mulberry(hashStr('forest' + today)), ids = [], spots = {}, i;
+    for (i = 0; i < world.spots.length; i++) ids.push(i);
+    for (i = 0; i < 6; i++) { var j = Math.floor(r() * ids.length), id = ids.splice(j, 1)[0]; spots[id] = wpick(Forest.FOREST_POOL, r); }
+    ST.forest = { date: today, spots: spots, found: {}, checked: {} }; save();
+  }
+  function randFree(minD) {
+    for (var i = 0; i < 80; i++) {
+      var x = rnd(14, fw - 14), y = rnd(14, world.shoreY - 10);
+      if (!nav.blockedAt(x, y) && Math.hypot(x - fj.x, y - fj.y) > (minD || 0)) return { x: x, y: y };
+    }
+    return { x: world.landing.x, y: world.landing.y - 20 };
+  }
+  function initCritters() {
+    var i, p;
+    snakes = []; frogs = []; squirrels = [];
+    for (i = 0; i < 3; i++) {
+      p = world.trailPts[Math.floor(Math.random() * world.trailPts.length)];
+      var s = { x: p[0], y: p[1], a: rnd(0, 6.28), segs: [], flee: 0, wob: rnd(0, 6) };
+      for (var k = 0; k < 11; k++) s.segs.push({ x: s.x, y: s.y });
+      snakes.push(s);
+    }
+    for (i = 0; i < 4; i++) { p = randFree(30); frogs.push({ x: p.x, y: p.y, t: rnd(1, 3), hop: 0, fx: p.x, fy: p.y, tx: p.x, ty: p.y }); }
+    for (i = 0; i < 3; i++) {
+      var tr = world.trees[Math.floor(Math.random() * world.trees.length)];
+      squirrels.push({ x: tr.x + tr.r * 0.9, y: tr.y + tr.r * 0.4, vis: true, t: rnd(2, 6), run: null, dir: 1 });
+    }
+    leaves = [];
+    for (i = 0; i < 8; i++) leaves.push({ x: rnd(0, lw), y: rnd(0, lh), v: rnd(5, 11), s: rnd(0, 6) });
+  }
+
+  function enterForest() {
+    scene = 'forest'; rebuildForest(); ensureForest(); applyQuest();
+    var l0 = world.landing;
+    fj.x = l0.x; fj.y = l0.y; fj.path = null; fj.cb = null; fj.trail = []; fj.dir = 'n'; fj.hold = 0;
+    fd.x = l0.x + 8; fd.y = l0.y + 3; fd.path = null; fd.job = null; fd.dir = 'n';
+    fg.joined = false; fg.path = null; fg.job = null; fg.dir = 'n'; fg.x = world.boat.x + 14; fg.y = world.boat.y - 4;
+    initCritters(); glints = {}; guideT = 22;
+    cam.x = clamp(fj.x - lw / 2, 0, fw - lw); cam.y = clamp(fj.y - lh / 2 + 10, 0, fh - lh);
+    hideBubble();
+    updateQuestBar();
+    setTimeout(function () { if (scene === 'forest') askJoin(); }, 800);
+  }
+  function askJoin() {
+    bubAnchor = anchorOf(fg);
+    showBubble({ text: LINES.forest.join }, { noCount: true, dur: 120, actions: [
+      { label: LINES.ui.joinYes, fn: function () { fg.joined = true; sayAt(fg, LINES.forest.joined); setTimeout(questCheck, 2500); } },
+      { label: LINES.ui.joinNo, fn: function () { fg.joined = false; sayAt(fd, pick(LINES.forest.dogLead)); setTimeout(questCheck, 2500); sfx(function (t) { tone(800, t, 0.07, 'square', 0.04, 1100); }); } }
+    ] });
+  }
+  function askHome() {
+    bubAnchor = anchorOf(fj);
+    showBubble({ text: LINES.forest.homeAsk }, { noCount: true, dur: 14, actions: [
+      { label: LINES.ui.rowHome, fn: function () { doFade(leaveForest); } }, { label: LINES.ui.stay }
+    ] });
+  }
+  function leaveForest() {
+    scene = 'pond'; hideBubble(); bubAnchor = goose; updateQuestBar();
+    june.mode = 'idle'; june.t = 0; june.strollAt = playTime + rnd(40, 80); june.wx = L.juneL + 8; june.wy = 182;
+    goose.x = L.boatX + 18; goose.y = 112; goose.dir = -1; toIdle();
+    dog.x = dogHome().x; dog.y = dogHome().y; dog.state = 'sit'; dog.wait = 4; dog.dig = null;
+    sayAt(goose, ST.quest && ST.quest.stage === 'return' ? LINES.quest.home : LINES.forest.home);
+  }
+
+  /* walking */
+  function setDir(e, dx, dy) { e.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n'); }
+  function followPath(e, sp, dt) {
+    e.mv = false;
+    if (!e.path || !e.path.length) return true;
+    var p = e.path[0], dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy), st = sp * dt;
+    e.mv = true;
+    if (d <= Math.max(0.6, st)) { e.x = p.x; e.y = p.y; e.path.shift(); return e.path.length === 0; }
+    e.x += dx / d * st; e.y += dy / d * st; setDir(e, dx, dy);
+    return false;
+  }
+  function walkTo(e, tx, ty) { e.path = nav.path(e.x, e.y, tx, ty); }
+  function followTrail(e, gap, sp, dt) {
+    var tl = fj.trail, idx = Math.min(tl.length - 1, Math.round(gap / 2)), t = idx >= 0 ? tl[idx] : { x: fj.x, y: fj.y };
+    var dx = t.x - e.x, dy = t.y - e.y, d = Math.hypot(dx, dy);
+    e.mv = false;
+    if (d > 80) { e.x = t.x; e.y = t.y; return; }
+    if (d > 1.6) { var st = Math.min(d, sp * dt); e.x += dx / d * st; e.y += dy / d * st; e.mv = true; setDir(e, dx, dy); }
+    else if (!fj.mv) { e.dir = fj.dir; }
+  }
+  function spotHasItem(s) { var f = ST.forest; return !!f.spots[s.id] && !f.found[s.id]; }
+  function guideOf() { return fg.joined ? fg : fd; }
+  function guideTo(s) {
+    var g = guideOf();
+    g.job = { phase: 'go', spot: s, t: 0 };
+    g.path = nav.path(g.x, g.y, s.x, s.y + 8);
+  }
+  function guidePing(e, j) {
+    var s = j.spot;
+    if (spotHasItem(s)) {
+      glints[s.id] = 4;
+      fsp(s.x, s.y - 6); fsp(s.x + 6, s.y - 10, -0.12);
+      if (e === fg) sHonk();
+      else { fheart(e.x, e.y - 10); sfx(function (t) { tone(800, t, 0.07, 'square', 0.04, 1100); tone(800, t + 0.12, 0.07, 'square', 0.04, 1100); }); e.hop = 0.5; }
+    } else if (e === fd) e.hop = 0.25;
+  }
+  function updateGuide(e, dt) {
+    var j = e.job;
+    if (j.phase === 'go') { if (followPath(e, e === fg ? 46 : 44, dt)) { j.phase = 'point'; j.t = 0; guidePing(e, j); } }
+    else { e.mv = false; j.t += dt; if (j.t > 2.2) e.job = null; }
+  }
+  function goSpot(s) {
+    guideTo(s); guideT = 26;
+    walkTo(fj, s.x, s.y + 9);
+    fj.cb = function () { searchSpot(s); };
+    if (!fj.path.length) { fj.path = null; fj.cb = null; searchSpot(s); }
+  }
+  function searchSpot(s) {
+    var f = ST.forest;
+    if (spotHasItem(s)) {
+      f.found[s.id] = true; save(); delete glints[s.id];
+      giveItem(f.spots[s.id], s.x - cam.x - ox, s.y - cam.y - oy - 8); wishEvent('forest');
+      var left = Object.keys(f.spots).filter(function (k) { return !f.found[k]; }).length;
+      if (questRecipe() && ST.quest.stage === 'forest') { questCheck(); if (ST.quest.stage === 'return') return; }
+      if (left === 0) sayAt(guideOf(), LINES.forest.allFound, { noCount: true, dur: 8 });
+      else if (Math.random() < 0.5) sayAt(guideOf(), pick(LINES.forest.found), { noCount: true, dur: 5 });
+    } else {
+      f.checked[s.id] = true;
+      if (Math.random() < 0.4) sayAt(guideOf(), pick(LINES.forest.empty), { noCount: true, dur: 4 });
+    }
+  }
+  function nearestUnfound() {
+    var best = null, bd = 1e9;
+    world.spots.forEach(function (s) { if (spotHasItem(s)) { var dd = Math.hypot(s.x - fj.x, s.y - fj.y); if (dd < bd) { bd = dd; best = s; } } });
+    return best;
+  }
+
+  /* wildlife */
+  function updateCritters(dt) {
+    snakes.forEach(function (s) {
+      s.wob += dt * 4;
+      var dj = Math.hypot(s.x - fj.x, s.y - fj.y);
+      if (dj < 20 && s.flee <= 0) { s.flee = 3; s.a = Math.atan2(s.y - fj.y, s.x - fj.x); }
+      var sp = s.flee > 0 ? 24 : 7;
+      if (s.flee > 0) s.flee -= dt; else s.a += (Math.random() - 0.5) * dt * 3;
+      var nx = s.x + Math.cos(s.a) * sp * dt, ny = s.y + Math.sin(s.a) * sp * dt;
+      if (nav.blockedAt(nx, ny)) s.a += 1.4 + Math.random(); else { s.x = nx; s.y = ny; }
+      s.segs[0].x = s.x; s.segs[0].y = s.y;
+      for (var i = 1; i < s.segs.length; i++) {
+        var p = s.segs[i - 1], q = s.segs[i], d = Math.hypot(q.x - p.x, q.y - p.y);
+        if (d > 2) { q.x = p.x + (q.x - p.x) / d * 2; q.y = p.y + (q.y - p.y) / d * 2; }
+      }
+      if (dj < 13 && fj.startle <= 0 && scene === 'forest') {
+        fj.startle = 8; fj.hold = 1.1; fj.exclT = 1.1;
+        sfx(function (t) { tone(1400, t, 0.12, 'sawtooth', 0.02, 700); });
+        if (Math.random() < 0.7) sayAt(guideOf(), pick(LINES.forest.snake), { noCount: true, dur: 4 });
+      }
+    });
+    fj.startle -= dt; if (fj.exclT > 0) fj.exclT -= dt;
+    frogs.forEach(function (f) {
+      f.t -= dt;
+      if (f.hop > 0) { f.hop += dt; if (f.hop >= 0.35) { f.hop = 0; f.x = f.tx; f.y = f.ty; } else { var u = f.hop / 0.35; f.x = lerp(f.fx, f.tx, u); f.y = lerp(f.fy, f.ty, u); } return; }
+      var near = Math.hypot(f.x - fj.x, f.y - fj.y) < 16;
+      if (f.t <= 0 || near) {
+        f.t = rnd(2, 5); var a = near ? Math.atan2(f.y - fj.y, f.x - fj.x) : rnd(0, 6.28), d = rnd(6, 14), tx = f.x + Math.cos(a) * d, ty = f.y + Math.sin(a) * d;
+        if (!nav.blockedAt(tx, ty)) { f.fx = f.x; f.fy = f.y; f.tx = tx; f.ty = ty; f.hop = 0.001; }
+      }
+    });
+    squirrels.forEach(function (q) {
+      q.t -= dt;
+      if (!q.vis) { if (q.t <= 0) { var p = randFree(40); q.x = p.x; q.y = p.y; q.vis = true; q.t = rnd(4, 8); } return; }
+      if (q.run) {
+        var dx = q.run.x - q.x, dy = q.run.y - q.y, d = Math.hypot(dx, dy), st = 38 * dt;
+        q.dir = dx < 0 ? -1 : 1;
+        if (d <= st) { q.vis = false; q.run = null; q.t = rnd(6, 12); } else { q.x += dx / d * st; q.y += dy / d * st; }
+        return;
+      }
+      if (Math.hypot(q.x - fj.x, q.y - fj.y) < 22) {
+        var best = null, bd = 1e9;
+        world.trees.forEach(function (t) { var dd = Math.hypot(t.x - q.x, t.y - q.y); if (dd > 6 && dd < bd && dd < 60) { bd = dd; best = t; } });
+        q.run = best ? { x: best.x, y: best.y } : { x: q.x + rnd(-30, 30), y: q.y + rnd(-30, 30) };
+      }
+    });
+    for (var i = 0; i < leaves.length; i++) { var lf = leaves[i]; lf.y += lf.v * dt; lf.x += Math.sin(T * 1.3 + lf.s) * 6 * dt; if (lf.y > lh + 3) { lf.y = -3; lf.x = rnd(0, lw); } }
+  }
+
+  function updateForest(dt) {
+    if (fj.hold > 0) { fj.hold -= dt; fj.mv = false; }
+    else if (fj.path && fj.path.length) {
+      var px = fj.x, py = fj.y, done = followPath(fj, 34, dt);
+      if (Math.hypot(fj.x - px, fj.y - py) > 0) {
+        var tl = fj.trail, last = tl[0];
+        if (!last || Math.hypot(fj.x - last.x, fj.y - last.y) >= 2) { tl.unshift({ x: fj.x, y: fj.y }); if (tl.length > 40) tl.pop(); }
+      }
+      if (done) { fj.path = null; var cb = fj.cb; fj.cb = null; if (cb) cb(); }
+    } else fj.mv = false;
+    if (fg.joined) { if (fg.job) updateGuide(fg, dt); else followTrail(fg, 20, 40, dt); }
+    else { fg.mv = false; fg.x = world.boat.x + 14 + Math.sin(T) * 1.2; fg.y = world.boat.y - 4; fg.dir = 'n'; }
+    if (!fg.joined && fd.job) updateGuide(fd, dt); else { fd.job = null; followTrail(fd, 9, 46, dt); }
+    if (fd.hop > 0) fd.hop -= dt;
+    updateCritters(dt);
+    guideT -= dt;
+    if (guideT <= 0 && !fj.path && !guideOf().job && !bub.on) { guideT = rnd(22, 34); var s = nearestUnfound(); if (s) guideTo(s); }
+    Object.keys(glints).forEach(function (k) { glints[k] -= dt; if (glints[k] <= 0) delete glints[k]; });
+    // camera follows June
+    var tx = clamp(fj.x - lw / 2, 0, fw - lw), ty = clamp(fj.y - lh / 2 + 10, 0, fh - lh), k2 = 1 - Math.pow(0.002, dt);
+    cam.x += (tx - cam.x) * k2; cam.y += (ty - cam.y) * k2;
+  }
+  function onForestDown(wx, wy, hr) {
+    if (Math.hypot(wx - world.landing.x, wy - world.shoreY - 6) < Math.max(20, hr) || Math.hypot(wx - world.boat.x, wy - world.boat.y) < Math.max(16, hr)) { askHome(); return; }
+    if (Math.hypot(wx - fd.x, wy - (fd.y - 4)) < Math.max(10, hr)) {
+      fd.hop = 0.5; fheart(fd.x - 3, fd.y - 8); fheart(fd.x + 3, fd.y - 11, -0.15);
+      sfx(function (t) { tone(900, t, 0.07, 'square', 0.04, 1300); tone(1000, t + 0.1, 0.08, 'square', 0.04, 1400); });
+      return;
+    }
+    if (fg.joined && Math.hypot(wx - fg.x, wy - (fg.y - 4)) < Math.max(11, hr)) { fsp(fg.x, fg.y - 10); sHonk(); return; }
+    var best = null, bd = 1e9;
+    world.spots.forEach(function (s) { var dd = Math.hypot(wx - s.x, wy - s.y); if (dd < Math.max(15, hr) && dd < bd) { bd = dd; best = s; } });
+    if (best) { goSpot(best); return; }
+    for (var i = 0; i < snakes.length; i++) {
+      var sn = snakes[i];
+      if (Math.hypot(wx - sn.x, wy - sn.y) < Math.max(12, hr)) { sn.flee = 3; sn.a = Math.atan2(sn.y - fj.y, sn.x - fj.x); fd.hop = 0.4; sfx(function (t) { tone(800, t, 0.07, 'square', 0.04, 1000); }); return; }
+    }
+    walkTo(fj, clamp(wx, 8, fw - 8), Math.min(wy, world.shoreY + 6)); fj.cb = null;
+    if (fj.path && !fj.path.length) fj.path = null;
+  }
+
+  /* drawing the forest */
+  function shadow(x, y, w) { ctx.globalAlpha = 0.28; ctx.fillStyle = '#001408'; ctx.fillRect(Math.round(x - w / 2), Math.round(y), w, 2); ctx.globalAlpha = 1; }
+  function drawSnake(s, cx, cy) {
+    var i, n = s.segs.length;
+    for (i = n - 1; i >= 0; i--) {
+      var q = s.segs[i], off = Math.sin(s.wob + i * 0.8) * 0.8;
+      ctx.fillStyle = i === 0 ? '#2f5a2a' : (i % 3 === 0 ? '#7ab648' : '#4a8a3f');
+      var sz = i === 0 ? 3 : (i > n - 3 ? 1 : 2);
+      ctx.fillRect(Math.round(q.x - cx + off - sz / 2), Math.round(q.y - cy - sz / 2), sz, sz);
+    }
+    ctx.fillStyle = '#e04848'; if (Math.floor(T * 1.3 + s.wob) % 3 === 0) ctx.fillRect(Math.round(s.x - cx + Math.cos(s.a) * 3), Math.round(s.y - cy + Math.sin(s.a) * 3), 1, 1);
+  }
+  function renderForest() {
+    if (fbgDirty) { fbg.width = fw; fbg.height = fh; Forest.paintWorld(fbg.getContext('2d'), world, cur); fbgDirty = false; }
+    var cx = Math.round(cam.x), cy = Math.round(cam.y), items = [], i;
+    ctx.drawImage(fbg, cx, cy, lw, lh, 0, 0, lw, lh);
+    world.spots.forEach(function (s) {
+      var d = spotSpr[s.type];
+      items.push({ y: s.y, f: function () {
+        ctx.drawImage(d.c, Math.round(s.x - cx - d.w / 2), Math.round(s.y - cy - d.h / 2));
+        if (glints[s.id] && Math.floor(T * 4) % 2) { var sp0 = spr('sparkle', 1); ctx.drawImage(sp0.c, Math.round(s.x - cx - 2), Math.round(s.y - cy - d.h / 2 - 5)); }
+      } });
+    });
+    snakes.forEach(function (s) { items.push({ y: s.y, f: function () { drawSnake(s, cx, cy); } }); });
+    frogs.forEach(function (f) {
+      var hopY = f.hop > 0 ? Math.sin(f.hop / 0.35 * Math.PI) * 4 : 0;
+      items.push({ y: f.y, f: function () { shadow(f.x - cx, f.y - cy + 1, 4); ctx.drawImage(Forest.FROG, Math.round(f.x - cx - 3), Math.round(f.y - cy - 3 - hopY)); } });
+    });
+    squirrels.forEach(function (q) {
+      if (!q.vis) return;
+      items.push({ y: q.y, f: function () {
+        var c = Forest.SQUIRREL; shadow(q.x - cx, q.y - cy + 2, 6);
+        if (q.dir < 0) { ctx.save(); ctx.translate(Math.round(q.x - cx + 4), Math.round(q.y - cy - 3)); ctx.scale(-1, 1); ctx.drawImage(c, 0, 0); ctx.restore(); }
+        else ctx.drawImage(c, Math.round(q.x - cx - 4), Math.round(q.y - cy - 3));
+      } });
+    });
+    function actor(e, kind, opt) {
+      items.push({ y: e.y, f: function () {
+        var c = Forest.tdSprite(kind, e.mv ? Math.floor(T * 6) % 2 : 0, e.dir, opt);
+        var hop = e.hop > 0 ? Math.abs(Math.sin(e.hop / 0.5 * Math.PI * 2)) * 3 : 0;
+        shadow(e.x - cx, e.y - cy + c.height * 0.2, c.width - 2);
+        ctx.drawImage(c, Math.round(e.x - cx - c.width / 2), Math.round(e.y - cy - c.height * 0.55 - hop));
+        if (kind === 'june' && fj.exclT > 0) ctx.drawImage(Forest.EXCL, Math.round(e.x - cx - 1), Math.round(e.y - cy - 15));
+      } });
+    }
+    actor(fj, 'june'); actor(fd, 'dog'); actor(fg, 'goose', { stage: clamp(ST.stage | 0, 0, 2), hat: hasHat() });
+    items.sort(function (p, q) { return p.y - q.y; });
+    for (i = 0; i < items.length; i++) items[i].f();
+    // drifting leaves, sunbeams, shade at the edges, and the time of day
+    ctx.fillStyle = '#c8873a';
+    for (i = 0; i < leaves.length; i++) ctx.fillRect(Math.round(leaves[i].x), Math.round(leaves[i].y), 2, 1);
+    if (cur.star < 0.4) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (i = 0; i < 4; i++) {
+        var bx = ((i * 83 + T * 3) % (lw + 80)) - 40, a = 0.05 + 0.025 * Math.sin(T * 0.6 + i);
+        ctx.globalAlpha = a; ctx.fillStyle = '#fff2b0';
+        ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx + 14, 0); ctx.lineTo(bx + 54, lh); ctx.lineTo(bx + 36, lh); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    var vk = lw + 'x' + lh;
+    if (vigKey !== vk) {
+      vigC = document.createElement('canvas'); vigC.width = lw; vigC.height = lh;
+      var vg = vigC.getContext('2d'), gr = vg.createRadialGradient(lw / 2, lh / 2, Math.min(lw, lh) * 0.25, lw / 2, lh / 2, Math.max(lw, lh) * 0.7);
+      gr.addColorStop(0, 'rgba(0,14,8,0)'); gr.addColorStop(1, 'rgba(0,14,8,0.5)'); vg.fillStyle = gr; vg.fillRect(0, 0, lw, lh); vigKey = vk;
+    }
+    ctx.drawImage(vigC, 0, 0);
+    var tn = cur.tint;
+    if (tn[3] > 0.005) { ctx.fillStyle = 'rgba(' + (tn[0] | 0) + ',' + (tn[1] | 0) + ',' + (tn[2] | 0) + ',' + tn[3].toFixed(3) + ')'; ctx.fillRect(0, 0, lw, lh); }
+    if (cur.fly > 0.02) {
+      for (i = 0; i < flies.length; i++) {
+        var f = flies[i], tw = 0.5 + 0.5 * Math.sin(T * 2.4 + f.ph);
+        ctx.globalAlpha = cur.fly * tw;
+        ctx.drawImage(spr('firefly', tw > 0.55 ? 0 : 1).c, Math.round(f.x / sw * lw - 1), Math.round((f.y - 96) / 84 * lh - 1));
+      }
+      ctx.globalAlpha = 1;
+    }
+    for (i = 0; i < sparkles.length; i++) {
+      var sp = sparkles[i]; if (sp.t < 0) continue;
+      var ss = spr('sparkle', Math.min(2, Math.floor(sp.t / 0.27)));
+      ctx.globalAlpha = clamp(1 - sp.t / 0.8, 0, 1); blit(ss, sp.x - Math.floor(ss.w / 2), sp.y - Math.floor(ss.h / 2));
+    }
+    for (i = 0; i < hearts.length; i++) {
+      var ht = hearts[i]; if (ht.t < 0) continue;
+      ctx.globalAlpha = clamp(1 - ht.t, 0, 1); { var hs0 = ht.note ? spr('note', 0) : spr('heart', 0); ctx.drawImage(hs0.c, Math.round(ht.x + ox - 3), Math.round(ht.y + oy), ht.note ? hs0.w : 6, ht.note ? hs0.h : 4); }
+    }
+    ctx.globalAlpha = 1;
+    flyList.forEach(function (f2) {
+      if (f2.t < 0) return;
+      var u = f2.t / 0.7, e = u * u * (3 - 2 * u), fx = lerp(f2.sx, f2.ex, e), fy = lerp(f2.sy, f2.ey, e) - Math.sin(u * Math.PI) * f2.arc;
+      var fs = f2.kind === 'diamond' ? spr('diamond', 0).c : itemCanvas(f2.id), sz = lerp(10, 5, e);
+      ctx.drawImage(fs, Math.round(fx + ox - sz / 2), Math.round(fy + oy - sz / 2), Math.round(sz), Math.round(sz));
+    });
+  }
+  function tickFx(dt) {
+    var i;
+    for (i = sparkles.length - 1; i >= 0; i--) { sparkles[i].t += dt; if (sparkles[i].t > 0.8) sparkles.splice(i, 1); }
+    for (i = hearts.length - 1; i >= 0; i--) { hearts[i].t += dt; hearts[i].y -= 12 * dt; if (hearts[i].t > 1) hearts.splice(i, 1); }
+    for (i = flyList.length - 1; i >= 0; i--) {
+      var f = flyList[i]; f.t += dt;
+      if (f.t >= 0.7) { flyList.splice(i, 1); var pb = $('pouchBtn'); pb.classList.remove('bump'); void pb.offsetWidth; pb.classList.add('bump'); }
+    }
+    if (cur.fly > 0.02) flies.forEach(function (f2) {
+      f2.t -= dt;
+      if (f2.t <= 0) { f2.t = rnd(0.6, 1.6); f2.vx = rnd(-8, 8); f2.vy = rnd(-5, 5); }
+      f2.x += f2.vx * dt; f2.y += f2.vy * dt;
+      if (f2.x < 0 || f2.x > sw) f2.vx = -f2.vx;
+      if (f2.y < 96 || f2.y > 180) f2.vy = -f2.vy;
+    });
+    chirpT -= dt;
+    if (chirpT <= 0) { chirpT = rnd(2.5, 6); if (!nightish()) sfx(function (t) { var b = rnd(2400, 3200); tone(b, t, 0.06, 'sine', 0.02, b * 1.25); tone(b * 1.1, t + 0.09, 0.05, 'sine', 0.02, b * 1.4); }); }
+  }
+
+  /* ---------- June outdoors: shadows, walking in every direction, sitting, jumping and dancing ---------- */
+  function drawShadow(sx, sy, w) {
+    ctx.globalAlpha = 0.28; ctx.fillStyle = '#001408';
+    ctx.fillRect(Math.round(sx - (w - 2) / 2), Math.round(sy - 2), w - 2, 1); ctx.fillRect(Math.round(sx - w / 2), Math.round(sy - 1), w, 2);
+    ctx.globalAlpha = 1;
+  }
+  function drawJuneAct(sx, sy, act, t, dir) { // sx = centre, sy = feet, both in screen units
+    var fr, dy = 0, dx = 0, sh = 14;
+    if (act === 'sit') {
+      var blink = (t % 3.4) > 3.2, breathe = Math.floor(t * 1.1) % 2;
+      fr = spr('june_sitf', blink ? 1 : (breathe ? 2 : 0));
+    } else if (act === 'jump') {
+      var p = t % 0.95;
+      if (p < 0.14 || p > 0.8) fr = spr('june_jump', 0);
+      else { fr = spr('june_jump', 1); dy = Math.sin(Math.PI * (p - 0.14) / 0.66) * 11; sh = Math.max(8, 14 - dy * 0.35); }
+    } else {
+      var beat = Math.floor(t * 6);
+      fr = spr('june_dance', beat % 4); dx = Math.round(Math.sin(t * 6) * 1.5); dy = Math.abs(Math.sin(t * 6)) * 1.5;
+    }
+    drawShadow(sx + dx * 0.5, sy, sh);
+    ctx.drawImage(fr.c, Math.round(sx - fr.w / 2 + dx), Math.round(sy - fr.h - dy));
+  }
+  var ACTS = { sit: 4.2, jump: 3.8, dance: 5.4 };
+  // walking on the grass: side, front or back view depending on where she is heading, with a little bob
+  function drawJuneWalk() {
+    var still = june.mode === 'strollIdle' || june.mode === 'smoresRoast', sx = june.wx + ox, sy = june.wy + 3 + oy, fr, bob = 0, flip = false, k = Math.floor(T * 7) % 4;
+    drawShadow(sx, sy, 12);
+    if (!still && june.face === 'd') { fr = spr('june_front', k); bob = (k & 1) ? 1 : 0; }
+    else if (!still && june.face === 'u') { fr = spr('june_back', k); bob = (k & 1) ? 1 : 0; }
+    else if (still && june.mode === 'strollIdle') { fr = spr('june_front', 0); }
+    else { var s2 = Math.floor(T * 6) % 2; fr = spr('june_walk', still ? 1 : s2); bob = !still && s2 ? 1 : 0; flip = june.fdir > 0; }
+    ctx.drawImage(flip ? fr.f : fr.c, Math.round(sx - fr.w / 2), Math.round(sy - fr.h - bob));
+  }
+
+  /* ---------- tap the grass: June walks there and sits, jumps or dances ---------- */
+  function grassGo(rx, ry) {
+    var m = june.mode;
+    if (scene !== 'pond' || juneAway() || (m !== 'idle' && m !== 'smile' && m !== 'wave') || talk || finale || trip || building || smores) return;
+    releasePending();
+    june.wx = L.juneL + 8; june.wy = 182; june.fdir = -1; june.vel = 0;
+    june.target = { x: clamp(rx, 14 - ox * 0.7, sw - 14 + ox * 0.7), y: clamp(ry, 160, 194) };
+    june.mode = 'grassWalk'; june.t = 0;
+  }
+  function startHutEnter() {
+    var m = june.mode;
+    if (scene !== 'pond' || juneAway() || (m !== 'idle' && m !== 'smile' && m !== 'wave') || talk || finale || trip || building || smores) return;
+    releasePending(); hideBubble();
+    june.wx = L.juneL + 8; june.wy = 182; june.fdir = -1; june.mode = 'hutEnter'; june.t = 0; june.fading = false; june.vel = 0;
+  }
+
+  /* ---------- inside the hut ---------- */
+  var HW = 300, hcam = 0, hbg = document.createElement('canvas'), hbgDirty = true, furn = Hut.makeFurniture();
+  var dishSpr = {};
+  Object.keys(Hut.DISH).forEach(function (id) { dishSpr[id] = SPR.fromRows(Hut.DISH[id]); });
+  var hj = { x: 0, dir: -1, mv: false, tx: 0, cb: null, mode: 'idle', t: 0, act: '', dur: 0, topH: 30, dish: '', phase: '', zT: 0 };
+  var hd = { x: 0, dir: 1, mv: false, mode: 'sit', t: 0, topH: 14, hop: 0 };
+  var puffs = [], steam = [], puffT = 0;
+  var CHAIR_X = 154, STOVE_X = 202;
+  function hutRx() { return Math.round((HW - Hut.ROOM_W) / 2); }
+  function hutPeakY() { var ceilY = oy + Hut.CEIL; return ceilY - Math.max(18, Math.min(54, ceilY - 6)); }
+  function rebuildHut() { HW = Math.max(300, lw); hbgDirty = true; }
+  function anchorH(e) {
+    if (!e._h) e._h = { get x() { return e.x - hcam - ox; }, get y() { return Hut.FLOOR; }, get topH() { return e.topH; } };
+    return e._h;
+  }
+  function hsp(wx, wy, delay) { sparkles.push({ x: wx - hcam - ox, y: wy, t: delay || 0 }); }
+  function hheart(wx, wy, delay, note) { hearts.push({ x: wx - hcam - ox, y: wy, t: delay || 0, note: !!note }); }
+  function hutSay(text, who) { sayAt(who || hd, text, { noCount: true, dur: 5 }); }
+
+  function enterHut() {
+    scene = 'hut'; rebuildHut();
+    var rx = hutRx();
+    hj.x = rx + Hut.SPOTS.door.stand - 8; hj.dir = -1; hj.mode = 'idle'; hj.tx = hj.x; hj.cb = null; hj.t = 0; hj.mv = false; hj.dish = '';
+    hd.x = hj.x + 12; hd.dir = -1; hd.mode = 'sit';
+    hcam = clamp(hj.x - lw / 2, 0, HW - lw);
+    hideBubble(); bubAnchor = anchorH(hd);
+    setTimeout(function () {
+      if (scene !== 'hut') return;
+      var r = questRecipe();
+      if (r && ST.quest.stage === 'return' && haveNeeds(r.needs)) {
+        hutSay(LINES.quest.cookNow);
+        setTimeout(function () { if (scene === 'hut') hutWalk(hutRx() + STOVE_X, function () { hj.dir = 1; openCook(); }); }, 1500);
+      } else hutSay(pick(LINES.hut.enter));
+    }, 700);
+  }
+  function leaveHut() {
+    $('cookOverlay').classList.remove('open');
+    scene = 'pond'; hideBubble(); bubAnchor = goose;
+    june.mode = 'idle'; june.t = 0; june.strollAt = playTime + rnd(30, 70); june.wx = L.juneL + 8; june.wy = 182;
+    dog.x = L.hutCX + 18; dog.y = 186; dog.state = 'sit'; dog.wait = 3; dog.dig = null; dog.trick = null;
+  }
+  function hutWalk(x, cb) {
+    var rx = hutRx();
+    hj.tx = clamp(x, rx + 10, rx + Hut.ROOM_W - 10); hj.cb = cb || null; hj.mode = 'walk'; hj.t = 0; hj.vel = 0;
+    if (Math.abs(hj.tx - hj.x) < 1) { hj.mode = 'idle'; var c = hj.cb; hj.cb = null; if (c) c(); }
+  }
+  function hutAct(act) {
+    hj.mode = 'act'; hj.act = act || pick(['sit', 'jump', 'dance']); hj.t = 0; hj.dur = ACTS[hj.act];
+    if (hj.act === 'dance') wishEvent('dance');
+    if (hj.act === 'jump') sfx(function (t) { tone(400, t, 0.08, 'sine', 0.04, 700); });
+  }
+  function hutLook(line, sec) { hj.mode = 'look'; hj.t = 0; hj.dur = sec || 2.6; hheart(hj.x, Hut.FLOOR - 30); if (line) hutSay(line); }
+
+  function onHutDown(wx, wy) {
+    var rx = hutRx(), lx = wx - rx, S = Hut.SPOTS;
+    function inside(s) { return lx >= s.x0 && lx <= s.x1 && wy >= s.y0 - 6 && wy <= s.y1 + 8; }
+    if (Math.hypot(wx - hd.x, wy - (Hut.FLOOR - 6)) < 14) { hd.hop = 0.5; hheart(hd.x, Hut.FLOOR - 16); hheart(hd.x + 4, Hut.FLOOR - 20, -0.15); sfx(function (t) { tone(900, t, 0.07, 'square', 0.04, 1300); tone(1000, t + 0.1, 0.08, 'square', 0.04, 1400); }); return; }
+    if (hj.mode === 'sleep') { hj.mode = 'idle'; hj.t = 0; hj.x = rx + S.bed.stand; hutSay(LINES.hut.wake, hj); return; }
+    if (hj.mode === 'cook' || hj.mode === 'eat') return;
+    if (inside(S.door)) { hutWalk(rx + S.door.stand, function () { doFade(leaveHut); }); return; }
+    if (inside(S.stove)) { hutWalk(rx + STOVE_X, function () { hj.dir = 1; openCook(); }); return; }
+    if (inside(S.counter)) { hutWalk(rx + S.counter.stand, function () { hutLook(pick(LINES.hut.counter)); }); return; }
+    if (inside(S.table) || (lx >= 146 && lx <= 162 && wy >= 148)) { hutWalk(rx + CHAIR_X, function () { hj.dir = 1; hj.mode = 'chair'; hj.t = 0; }); return; }
+    if (inside(S.bed)) { hutWalk(rx + S.bed.stand, function () { hj.mode = 'sleep'; hj.t = 0; hj.zT = 0; hj.dir = -1; hutSay(pick(LINES.hut.bed)); }); return; }
+    if (inside(S.shelf)) { hutWalk(rx + S.shelf.stand, function () { hj.dir = -1; hutLook(pick(LINES.hut.shelf).replace('{n}', ST.goodies.length)); }); return; }
+    if (inside(S.window)) { hutWalk(rx + S.window.stand, function () { hj.dir = -1; hutLook(LINES.hut.window[slot]); }); return; }
+    if (inside(S.plant)) { hutWalk(rx + S.plant.stand, function () { hutLook(pick(LINES.hut.plant)); }); return; }
+    if (inside(S.picture)) { hutWalk(rx + S.picture.stand, function () { hutLook(pick(LINES.hut.picture)); }); return; }
+    if (Math.abs(wx - hj.x) < 12 && wy > 140) { hutAct(); return; }
+    if (wy > 100) { hutWalk(wx, function () { hutAct(); }); }
+  }
+
+  function updateHut(dt) {
+    var rx = hutRx(), S = Hut.SPOTS;
+    hj.t += dt; hd.t += dt; if (hd.hop > 0) hd.hop -= dt;
+    if (hj.mode === 'walk') {
+      var dx = hj.tx - hj.x;
+      hj.vel = (hj.vel || 0) + (34 - (hj.vel || 0)) * Math.min(1, dt * 7);
+      var st = Math.max(4, hj.vel) * dt;
+      if (Math.abs(dx) <= st) { hj.x = hj.tx; hj.mv = false; hj.vel = 0; hj.mode = 'idle'; hj.t = 0; var cb = hj.cb; hj.cb = null; if (cb) cb(); }
+      else { hj.x += Math.sign(dx) * st; hj.dir = dx < 0 ? -1 : 1; hj.mv = true; }
+    } else hj.mv = false;
+    if (hj.mode === 'act' && hj.t > hj.dur) { hj.mode = 'idle'; hj.t = 0; }
+    if (hj.mode === 'act' && hj.act === 'dance' && Math.random() < dt * 3) hheart(hj.x + rnd(-10, 10), Hut.FLOOR - 26 - rnd(0, 10), 0, true);
+    if (hj.mode === 'look' && hj.t > hj.dur) { hj.mode = 'idle'; hj.t = 0; }
+    if (hj.mode === 'chair' && hj.t > 3.5) { hj.mode = 'idle'; hj.t = 0; }
+    if (hj.mode === 'sleep') { hj.zT += dt; if (hj.zT > 1.2) { hj.zT = 0; zees.push({ x: rx + 18 - hcam - ox, y: Hut.FLOOR - 28, t: 0 }); } if (hj.t > 25) { hj.mode = 'idle'; hj.t = 0; } }
+    if (hj.mode === 'cook') {
+      steam.push({ x: rx + 219 + rnd(-2, 2), y: Hut.FLOOR - 28, t: 0 }); if (steam.length > 30) steam.shift();
+      if (Math.floor(hj.t * 6) !== Math.floor((hj.t - dt) * 6)) sfx(function (t) { tone(rnd(900, 1500), t, 0.02, 'square', 0.01); });
+      if (hj.t > 4.5) { hj.phase = 'carry'; hutWalk(rx + CHAIR_X, function () { hj.dir = 1; hj.mode = 'eat'; hj.t = 0; }); }
+    }
+    if (hj.mode === 'eat') {
+      if (Math.random() < dt * 2) hsp(rx + 176, Hut.FLOOR - 24);
+      if (hj.t > 5) finishCook();
+    }
+    // the puppy: curls up on its bed when June sleeps, otherwise tags along
+    var dTarget = hj.mode === 'sleep' ? rx + S.dogbed.x0 + 11 : clamp(hj.x - hj.dir * 16, rx + 12, rx + Hut.ROOM_W - 12), dd = dTarget - hd.x;
+    if (Math.abs(dd) > 3) { hd.x += Math.sign(dd) * 40 * dt; hd.dir = dd < 0 ? -1 : 1; hd.mv = true; hd.mode = 'walk'; }
+    else { hd.mv = false; hd.mode = hj.mode === 'sleep' ? 'sleep' : 'sit'; if (hj.mode !== 'sleep' && !hj.mv) hd.dir = hj.dir; }
+    puffT -= dt; if (puffT <= 0) { puffT = 1.1; puffs.push({ x: rx + 232, y: hutPeakY() + 2, t: 0 }); }
+    var i;
+    for (i = puffs.length - 1; i >= 0; i--) { puffs[i].t += dt; puffs[i].y -= 6 * dt; puffs[i].x += 3 * dt; if (puffs[i].t > 3.5) puffs.splice(i, 1); }
+    for (i = steam.length - 1; i >= 0; i--) { steam[i].t += dt; steam[i].y -= 10 * dt; if (steam[i].t > 1.2) steam.splice(i, 1); }
+    for (i = 0; i < clouds.length; i++) { clouds[i].x += clouds[i].sp * dt; if (clouds[i].x > lw + 4) clouds[i].x = -40; }
+    var tx = clamp(hj.x - lw / 2, 0, HW - lw); hcam += (tx - hcam) * (1 - Math.pow(0.002, dt));
+  }
+
+  /* ---------- cooking ---------- */
+  function openCook() {
+    var list = $('cookList'); list.innerHTML = '';
+    $('cookTitle').textContent = LINES.cook.title; $('cookNote').textContent = LINES.cook.note;
+    var any = false;
+    Hut.RECIPES.forEach(function (r) {
+      var ok = haveNeeds(r.needs), row = document.createElement('div'), ic = document.createElement('canvas'), nm = document.createElement('div'), chips = document.createElement('div'), btn = document.createElement('button');
+      any = any || ok;
+      row.className = 'cookrow' + (ok ? '' : ' no');
+      ic.width = 10; ic.height = 10; ic.getContext('2d').drawImage(dishSpr[r.id], 0, 0); ic.className = 'dishic';
+      nm.className = 'dishname'; nm.textContent = LINES.dishes[r.id];
+      chips.className = 'chips';
+      Object.keys(r.needs).forEach(function (k) {
+        var chip = document.createElement('span'), c2 = document.createElement('canvas');
+        c2.width = 12; c2.height = 12; paint(c2, k); chip.appendChild(c2);
+        var have = ST.inv[k] || 0, t = document.createElement('b'); t.textContent = Math.min(have, r.needs[k]) + '/' + r.needs[k]; if (have < r.needs[k]) t.className = 'low'; chip.appendChild(t); chips.appendChild(chip);
+      });
+      btn.type = 'button'; btn.textContent = ok ? LINES.ui.cook : LINES.ui.find;
+      btn.addEventListener('click', function () { $('cookOverlay').classList.remove('open'); if (ok) startCook(r.id); else startQuest(r.id); });
+      var mid = document.createElement('div'); mid.className = 'cookmid'; mid.appendChild(nm); mid.appendChild(chips);
+      row.appendChild(ic); row.appendChild(mid); row.appendChild(btn); list.appendChild(row);
+    });
+    $('cookOverlay').classList.add('open');
+    if (!any) hutSay(LINES.cook.none);
+  }
+  $('cookOverlay').addEventListener('click', function (e) { if (e.target === $('cookOverlay')) $('cookOverlay').classList.remove('open'); });
+  function startCook(id) {
+    var r = Hut.RECIPES.filter(function (x) { return x.id === id; })[0], k;
+    if (!r || !haveNeeds(r.needs) || scene !== 'hut') return;
+    for (k in r.needs) ST.inv[k] = Math.max(0, (ST.inv[k] || 0) - r.needs[k]);
+    if (ST.quest && ST.quest.id === id) ST.quest = null;
+    save();
+    hj.dish = id; hj.mode = 'cook'; hj.t = 0; hj.dir = 1;
+    hutSay(pick(LINES.cook.start));
+  }
+  function finishCook() {
+    var id = hj.dish, rx = hutRx();
+    hj.mode = 'idle'; hj.t = 0; hj.dish = '';
+    for (var i = 0; i < 4; i++) hheart(rx + 170 + rnd(-10, 10), Hut.FLOOR - 28 - rnd(0, 10), -i * 0.1);
+    sCollect(); wishEvent('cook');
+    if (!ST.cooked[id]) { ST.cooked[id] = true; ST.diamonds++; save(); hutSay(LINES.cook.first, hd); }
+    else hutSay(pick(LINES.cook.done), hd);
+  }
+
+  function renderHut() {
+    var rx = hutRx(), S = Hut.SPOTS, F = furn, FL = Hut.FLOOR, cx = Math.round(hcam), i;
+    if (hbgDirty) {
+      hbg.width = HW; hbg.height = lh;
+      Hut.paintRoom(hbg.getContext('2d'), { P: cur, HW: HW, lw: lw, lh: lh, oy: oy, rx: rx });
+      hbgDirty = false;
+    }
+    ctx.drawImage(hbg, cx, 0, lw, lh, 0, 0, lw, lh);
+    // drifting clouds above the roof
+    var cs2 = cloudSet(), peak = hutPeakY();
+    ctx.globalAlpha = clamp(1.05 - cur.star * 0.92, 0.14, 0.95);
+    for (i = 0; i < clouds.length; i++) { var cy2 = 4 + (clouds[i].y * 7) % Math.max(8, peak - 22); ctx.drawImage(cs2[clouds[i].c], Math.round(clouds[i].x), Math.round(cy2)); }
+    ctx.globalAlpha = 1;
+    function put(f, x, y) { ctx.drawImage(f.c, Math.round(x - cx), Math.round(oy + y)); }
+    for (i = 0; i < puffs.length; i++) { ctx.globalAlpha = clamp(0.5 - puffs[i].t / 7, 0, 0.5); ctx.fillStyle = '#e6e9ef'; var pz = 2 + Math.floor(puffs[i].t); ctx.fillRect(Math.round(puffs[i].x - cx), Math.round(puffs[i].y), pz, pz); }
+    ctx.globalAlpha = 1;
+    // wall things: picture, jars, the hat on its hook, and the shelf of everything she has found
+    put(F.picture, rx + 173, 117); put(F.jars, rx + 212, FL - 52); put(F.hook, rx + 262, 126);
+    if (hasHat()) ctx.drawImage(spr('goose_hat', 0).c, Math.round(rx + 260 - cx), Math.round(oy + 119));
+    var bx = Math.round(rx + 16 - cx);
+    Hut.SHELF_BOARDS.forEach(function (by) { ctx.fillStyle = '#7a4d28'; ctx.fillRect(bx, Math.round(oy + by), 72, 3); ctx.fillStyle = '#a8723f'; ctx.fillRect(bx, Math.round(oy + by), 72, 1); });
+    GOODIES.forEach(function (d, gi) { if (has(d.id) && Hut.SHELF_SLOTS[gi]) ctx.drawImage(goodieSpr[d.id], Math.round(rx + Hut.SHELF_SLOTS[gi][0] - cx), Math.round(oy + Hut.SHELF_SLOTS[gi][1])); });
+    // furniture, all sized for June
+    put(F.rug, rx + 148, FL - 4); put(F.bed, rx + 10, FL - 18); put(F.plant, rx + 90, FL - 16); put(F.dogbed, rx + 128, FL - 8);
+    put(F.lamp, rx + 70, FL - 28); put(F.stove, rx + 212, FL - 22); put(F.kettle, rx + 214, FL - 24); put(F.counter, rx + 240, FL - 17);
+    put(F.chair, rx + 148, FL - 18);
+    // the puppy
+    var df = hd.mode === 'sleep' ? spr('dog_sleep', 0) : hd.mode === 'walk' ? spr('dog_walk', Math.floor(T * 6) % 2) : spr('dog_sit', Math.floor(T * 4) % 2);
+    var dh = hd.hop > 0 ? Math.abs(Math.sin(hd.hop / 0.5 * Math.PI * 2)) * 4 : 0, dy0 = hd.mode === 'sleep' ? FL - 6 : FL + 1;
+    if (hd.mode !== 'sleep') drawShadow(hd.x - cx, oy + FL + 1, 10);
+    ctx.drawImage(hd.dir > 0 ? df.f : df.c, Math.round(hd.x - cx - df.w / 2), Math.round(oy + dy0 - df.h + 2 - dh));
+    // June
+    var jx = hj.x - cx, jf = oy + FL + 3, fr;
+    if (hj.mode === 'sleep') { fr = spr('june_sleep', 0); ctx.drawImage(fr.c, Math.round(rx + 14 - cx), Math.round(oy + FL - 17)); }
+    else if (hj.mode === 'act') drawJuneAct(jx, jf, hj.act, hj.t, hj.dir);
+    else if (hj.mode === 'eat' || hj.mode === 'chair') {
+      drawShadow(jx, jf, 14);
+      fr = spr(hj.mode === 'eat' && Math.floor(hj.t * 1.5) % 2 ? 'june_smile' : 'june_idle', 0);
+      ctx.drawImage(fr.f, Math.round(jx - fr.w / 2), Math.round(jf - fr.h));
+    }
+    else if (hj.mode === 'cook') { drawShadow(jx, jf, 12); fr = spr('june_toss', Math.floor(hj.t * 4) % 2); ctx.drawImage(hj.dir > 0 ? fr.f : fr.c, Math.round(jx - fr.w / 2), Math.round(jf - fr.h)); }
+    else {
+      var s2 = hj.mv ? Math.floor(T * 6) % 2 : 1;
+      drawShadow(jx, jf, 12);
+      fr = spr('june_walk', s2);
+      ctx.drawImage(hj.dir > 0 ? fr.f : fr.c, Math.round(jx - fr.w / 2), Math.round(jf - fr.h - (hj.mv && s2 ? 1 : 0)));
+      if (hj.phase === 'carry' && hj.dish && hj.mode === 'walk') ctx.drawImage(dishSpr[hj.dish], Math.round(jx - 5 + hj.dir * -6), Math.round(jf - fr.h + 8));
+    }
+    // the table is in front of whoever sits at it, and the dish sits on the table
+    put(F.table, rx + 162, FL - 16);
+    if (hj.mode === 'eat' && hj.dish) ctx.drawImage(dishSpr[hj.dish], Math.round(rx + 176 - cx), Math.round(oy + FL - 25));
+    for (i = 0; i < steam.length; i++) { ctx.globalAlpha = clamp(0.7 - steam[i].t, 0, 0.7); ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(steam[i].x - cx + Math.sin(steam[i].t * 6 + i) * 1.5), Math.round(steam[i].y), 2, 2); }
+    ctx.globalAlpha = 1;
+    // sunlight through the window by day, lamp and stove glow at night
+    if (cur.star < 0.5) {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.07 * (1 - cur.star * 2);
+      ctx.fillStyle = '#fff2b0'; ctx.beginPath();
+      ctx.moveTo(rx + S.window.x0 - cx, oy + S.window.y0 + 4); ctx.lineTo(rx + S.window.x1 - cx, oy + S.window.y0 + 4); ctx.lineTo(rx + S.window.x1 + 34 - cx, oy + FL); ctx.lineTo(rx + S.window.x0 + 18 - cx, oy + FL); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    var tn = cur.tint, ta = tn[3] * 0.5;
+    if (ta > 0.005) { ctx.fillStyle = 'rgba(' + (tn[0] | 0) + ',' + (tn[1] | 0) + ',' + (tn[2] | 0) + ',' + ta.toFixed(3) + ')'; ctx.fillRect(0, 0, lw, lh); }
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = clamp(0.35 + cur.star * 0.45, 0, 0.85); ctx.drawImage(glowC, Math.round(rx + 75 - 24 - cx), Math.round(oy + FL - 52), 48, 48);
+    if (hj.mode === 'cook') { ctx.globalAlpha = 0.55 + 0.15 * Math.sin(T * 10); ctx.drawImage(glowC, Math.round(rx + 224 - 22 - cx), Math.round(oy + FL - 34), 44, 34); }
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    for (i = 0; i < sparkles.length; i++) {
+      var sp = sparkles[i]; if (sp.t < 0) continue;
+      var ss = spr('sparkle', Math.min(2, Math.floor(sp.t / 0.27)));
+      ctx.globalAlpha = clamp(1 - sp.t / 0.8, 0, 1); blit(ss, sp.x - Math.floor(ss.w / 2), sp.y - Math.floor(ss.h / 2));
+    }
+    for (i = 0; i < hearts.length; i++) {
+      var ht = hearts[i]; if (ht.t < 0) continue;
+      var hs = ht.note ? spr('note', 0) : spr('heart', 0);
+      ctx.globalAlpha = clamp(1 - ht.t, 0, 1); ctx.drawImage(hs.c, Math.round(ht.x + ox - 3), Math.round(ht.y + oy), ht.note ? hs.w : 6, ht.note ? hs.h : 4);
+    }
+    for (i = 0; i < zees.length; i++) { var zz = zees[i]; ctx.globalAlpha = clamp(Math.min(zz.t * 2, (2.4 - zz.t) / 1.2), 0, 1); blit(spr('zee', 0), zz.x, zz.y); }
+    ctx.globalAlpha = 1;
+    flyList.forEach(function (f2) {
+      if (f2.t < 0) return;
+      var u = f2.t / 0.7, e = u * u * (3 - 2 * u), fx = lerp(f2.sx, f2.ex, e), fy = lerp(f2.sy, f2.ey, e) - Math.sin(u * Math.PI) * f2.arc;
+      var fs2 = f2.kind === 'diamond' ? spr('diamond', 0).c : itemCanvas(f2.id), sz = lerp(10, 5, e);
+      ctx.drawImage(fs2, Math.round(fx + ox - sz / 2), Math.round(fy + oy - sz / 2), Math.round(sz), Math.round(sz));
+    });
+  }
+  function updateHutFx(dt) {
+    for (var i = zees.length - 1; i >= 0; i--) { var z = zees[i]; z.t += dt; z.y -= 6 * dt; if (z.t > 2.4) zees.splice(i, 1); }
+  }
+
   /* ---------- effects ---------- */
   function updateEffects(dt) {
     var i;
@@ -1207,7 +2483,7 @@
       }
     }
     updateFinale(dt);
-    updateDog(dt); updateFish(dt); updateStones(dt);
+    updateDog(dt); updateFish(dt); updateStones(dt); updateMounds(dt); updateTrip(dt); updateBuild(dt); updateSmores(dt); updateBirds(dt); updateVisitor(dt); updateSky(dt);
     for (i = hearts.length - 1; i >= 0; i--) { hearts[i].t += dt; hearts[i].y -= 12 * dt; if (hearts[i].t > 1) hearts.splice(i, 1); }
     clouds.forEach(function (c) { c.x += c.sp * dt; if (c.x > lw + 4) c.x = -40; });
     bflies.forEach(function (f) {
@@ -1240,7 +2516,7 @@
       case 'honk': return spr(gp('honk'), g.t < 0.5 ? 0 : 1);
     }
     if (g.placing && g.state === 'wait') return spr(gp('eat'), 0);
-    if (water) return spr(gp('swim'), Math.floor(T * 2.5) % 2);
+    if (water) return (hungerLevel() >= 2 && g.state === 'idle') ? spr(gp('groggy'), 0) : spr(gp('swim'), Math.floor(T * 2.5) % 2);
     if (g.state === 'path') return spr(gp('waddle'), k % 2);
     return spr(gp('stand'), 0);
   }
@@ -1274,6 +2550,8 @@
   var REEDS = [[0.05, 148], [0.1, 150], [0.95, 149], [0.9, 150], [0.33, 90], [0.64, 89], [0.82, 91]];
 
   function render() {
+    if (scene === 'forest') { renderForest(); drawFade(); present(); return; }
+    if (scene === 'hut') { renderHut(); drawFade(); present(); return; }
     if (bgDirty) renderBG();
     ctx.drawImage(bg, 0, 0);
     var i, a;
@@ -1292,6 +2570,15 @@
       for (i = 0; i < 7; i++) { ctx.globalAlpha *= 0.82; ctx.fillRect(mx + 3 + (i % 2) * 2 + Math.round(Math.sin(T + i)), oy + 90 + i * 7, 5 - (i % 3), 1); }
       ctx.globalAlpha = 1;
     }
+    if (cur.star > 0.75 && oy > 20) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (var ax = 0; ax < lw; ax += 3) {
+        var ay = 8 + oy * 0.3 + Math.sin(ax * 0.045 + T * 0.35) * 7 + Math.sin(ax * 0.02 + T * 0.2) * 5;
+        ctx.globalAlpha = (0.05 + 0.04 * Math.sin(ax * 0.03 + T * 0.5)) * clamp((cur.star - 0.75) * 4, 0, 1);
+        ctx.fillStyle = (ax / 3) % 2 ? '#5affb0' : '#7affd8'; ctx.fillRect(ax, ay, 3, 22 + Math.sin(ax * 0.05 + T * 0.4) * 6);
+      }
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    }
     var sunU = (hourF - 6) / 12.5, sunA = clamp(Math.sin(Math.PI * sunU) * 2, 0, 1) * clamp(1 - cur.star * 1.5, 0, 1);
     if (sunU > 0 && sunU < 1 && sunA > 0.02) {
       var sx = ox + sw * (0.12 + 0.76 * sunU), sy = oy + 52 - 40 * Math.sin(Math.PI * sunU);
@@ -1302,6 +2589,7 @@
     ctx.globalAlpha = cA;
     for (i = 0; i < clouds.length; i++) ctx.drawImage(cs2[clouds[i].c], Math.round(clouds[i].x), Math.round(clouds[i].y));
     ctx.globalAlpha = 1;
+    drawSkyLife();
     for (i = 0; i < shimmer.length; i++) {
       var sh = shimmer[i]; a = 0.12 + 0.16 * Math.max(0, Math.sin(T * 1.2 + sh.ph));
       if (cur.star > 0.5) a *= 0.5;
@@ -1315,6 +2603,8 @@
       blit(spr('pad', 0), px - 5, py + bobp);
       if (i === 1 || i === 3) blit(spr('padflower', 0), px - 2, py - 3 + bobp);
     }
+    extras.pads.forEach(function (pd, pi) { blit(spr('pad', 0), pd.x - 5, pd.y + (Math.sin(T * 0.7 + pi) > 0.8 ? 1 : 0)); });
+    extras.reeds.forEach(function (rd, ri) { blit(spr('reed', Math.sin(T * 1.1 + ri * 1.7) > 0.2 ? 1 : 0), rd.x - 4, rd.y - 16); });
     for (i = 0; i < REEDS.length; i++) {
       var rp = REEDS[i];
       blit(spr('reed', Math.sin(T * 1.1 + i * 1.7) > 0.2 ? 1 : 0), rp[0] * sw - 4, rp[1] - 16);
@@ -1347,11 +2637,20 @@
         ctx.restore();
       }
     } });
-    if (juneAway() && june.mode !== 'hutSleep') items.push({ y: june.wy, f: function () {
-      var wf = spr('june_walk', june.mode === 'strollIdle' ? 1 : Math.floor(T * 6) % 2);
-      blitO(wf, june.wx - 8, june.wy + 3 - wf.h, june.fdir > 0);
+    if (juneAway() && june.mode !== 'hutSleep' && june.mode !== 'tripBoat') items.push({ y: june.wy, f: function () {
+      if (june.mode === 'grassAct') { drawJuneAct(june.wx + ox, june.wy + 3 + oy, june.act, june.t, june.fdir); return; }
+      if (june.mode === 'hutEnter' && Math.abs(june.wx - L.hutCX) < 2) return;
+      drawJuneWalk();
+      if (june.mode === 'smoresRoast' && smores) drawStick();
     } });
-    items.push({ y: dog.y, f: drawDog });
+    if (ST.boat || (building && building.id === 'boat')) items.push({ y: (trip && trip.phase === 'row' ? trip.by : BANK_Y - 3) + 4, f: function () { drawBoat(buildAlpha('boat')); } });
+    if (ST.fire || (building && building.id === 'fire')) items.push({ y: L.fireY, f: function () { drawFire(buildAlpha('fire')); } });
+    if (ST.feeder || (building && building.id === 'feeder')) items.push({ y: L.feederY, f: function () { drawFeeder(buildAlpha('feeder')); } });
+    gifts.forEach(function (gf) { items.push({ y: gf.y, f: function () { blitC(itemCanvas(gf.id), gf.x - 5, gf.y - 10 + (Math.floor(T * 1.6) % 2)); } }); });
+    birds.forEach(function (bd) { items.push({ y: bd.state === 'perch' ? L.feederY + 1 : bd.y, f: function () { drawBird(bd); } }); });
+    if (visitor) items.push({ y: visitor.y, f: drawVisitor });
+    drawMounds().forEach(function (it) { items.push(it); });
+    if (june.mode !== 'tripBoat') items.push({ y: dog.y, f: drawDog });
     ground.forEach(function (gd, idx) {
       items.push({ y: gd.y, f: function () { blitC(goodieSprO[gd.id], gd.x - 6, gd.y - 11 + (Math.floor(T * 1.6 + idx) % 2)); } });
     });
@@ -1377,6 +2676,12 @@
       ctx.globalAlpha *= 0.7; ctx.drawImage(glowC, ox + L.lampX - 30, oy + L.lampY - 8, 60, 22);
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     }
+    if (fireLit()) {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = clamp(0.55 + 0.15 * Math.sin(T * 9) * Math.sin(T * 3.1), 0, 1);
+      ctx.drawImage(glowC, ox + L.fireX - 28, oy + L.fireY - 34, 56, 56);
+      ctx.globalAlpha *= 0.7; ctx.drawImage(glowC, ox + L.fireX - 34, oy + L.fireY - 10, 68, 24);
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    }
     if (cur.lamp > 0.05 || june.mode === 'hutSleep') {
       var ga = Math.max(cur.lamp, june.mode === 'hutSleep' ? 0.5 : 0);
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = clamp(ga * 0.8, 0, 1);
@@ -1399,7 +2704,7 @@
     for (i = 0; i < hearts.length; i++) {
       var ht = hearts[i]; if (ht.t < 0) continue;
       ctx.globalAlpha = clamp(1 - ht.t, 0, 1);
-      ctx.drawImage(spr('heart', 0).c, Math.round(ht.x + ox - 3), Math.round(ht.y + oy), 6, 4);
+      { var hs0 = ht.note ? spr('note', 0) : spr('heart', 0); ctx.drawImage(hs0.c, Math.round(ht.x + ox - 3), Math.round(ht.y + oy), ht.note ? hs0.w : 6, ht.note ? hs0.h : 4); }
     }
     ctx.globalAlpha = 1;
     for (i = 0; i < zees.length; i++) {
@@ -1410,12 +2715,11 @@
     flyList.forEach(function (f) {
       if (f.t < 0) return;
       var u = f.t / 0.7, e = u * u * (3 - 2 * u), fx = lerp(f.sx, f.ex, e), fy = lerp(f.sy, f.ey, e) - Math.sin(u * Math.PI) * f.arc;
-      var fs = f.kind === 'diamond' ? spr('diamond', 0).c : goodieSpr[f.id], sz = lerp(10, 5, e);
+      var fs = f.kind === 'diamond' ? spr('diamond', 0).c : itemCanvas(f.id), sz = lerp(10, 5, e);
       ctx.drawImage(fs, Math.round(fx + ox - sz / 2), Math.round(fy + oy - sz / 2), Math.round(sz), Math.round(sz));
     });
 
-    vctx.clearRect(0, 0, cv.width, cv.height);
-    vctx.drawImage(lc, 0, 0, lw, lh, 0, 0, lw * pxK, lh * pxK);
+    drawFade(); present();
   }
 
   /* ---------- the surprise: fireworks and a note, once everything is collected ---------- */
@@ -1469,6 +2773,16 @@
     e.preventDefault(); unlockAudio();
     if ($('pouchOverlay').classList.contains('open')) return;
     var rx = e.clientX / scale - ox, ry = e.clientY / scale - oy, hr = 26 / scale, i;
+    if (scene === 'forest') { onForestDown(e.clientX / scale + cam.x, e.clientY / scale + cam.y, hr); return; }
+    if (scene === 'hut') { onHutDown(e.clientX / scale + hcam, e.clientY / scale - oy); return; }
+    if (tapSky(rx, ry, hr)) return;
+    for (i = gifts.length - 1; i >= 0; i--) { if (Math.hypot(rx - gifts[i].x, ry - (gifts[i].y - 5)) < Math.max(10, hr)) { collectGift(gifts[i]); return; } }
+    if (visitor && Math.hypot(rx - visitor.x, ry - (visitor.y - 4)) < Math.max(12, hr)) { petVisitor(); return; }
+    for (i = birds.length - 1; i >= 0; i--) { if (Math.hypot(rx - birds[i].x, ry - (birds[i].y - 3)) < Math.max(10, hr)) { petBird(birds[i]); return; } }
+    if (ST.feeder && !building && Math.hypot(rx - L.feederX, ry - (L.feederY - 8)) < Math.max(14, hr)) { tapFeeder(); return; }
+    if (ST.fire && !building && Math.hypot(rx - L.fireX, ry - (L.fireY - 4)) < Math.max(14, hr)) { askFire(); return; }
+    for (i = mounds.length - 1; i >= 0; i--) { if (Math.hypot(rx - mounds[i].x, ry - (mounds[i].y - 2)) < Math.max(10, hr)) { digUp(mounds[i]); return; } }
+    if (ST.boat && !trip && Math.abs(rx - L.boatX) < Math.max(20, hr) && ry > BANK_Y - 22 && ry < BANK_Y + 10) { askRow(); return; }
     for (i = ground.length - 1; i >= 0; i--) {
       if (Math.hypot(rx - ground[i].x, ry - (ground[i].y - 5)) < Math.max(10, hr)) { collectGoodie(ground[i]); return; }
     }
@@ -1476,6 +2790,7 @@
     if (goose.state === 'idle' && !talk && Math.hypot(rx - goose.x, ry - (goose.y - 6)) < Math.max(11, hr * 0.8)) { openFreeTalk(); return; }
     if (Math.hypot(rx - dog.x, ry - (dog.y - 5)) < Math.max(11, hr)) { petDog(); return; }
     if (june.mode === 'hutSleep' && rx > L.hutL && rx < L.hutL + 30 && ry > L.hutY - 30 && ry < L.hutY + 4) { june.nap = 0; return; }
+    if (rx > L.hutL && rx < L.hutL + 30 && ry > L.hutY - 30 && ry < L.hutY + 4 && !juneAway()) { startHutEnter(); return; }
     if (juneAway()) { /* her seat is empty */ } else
     if (rx > L.benchL - 6 && rx < L.benchL + 32 && ry > L.juneT - 6 && ry < 192 || Math.hypot(rx - (L.juneL + 8), ry - (L.juneT + 12)) < hr) {
       wishEvent('wave');
@@ -1486,7 +2801,7 @@
   }
   cv.addEventListener('pointerdown', onDown, { passive: false });
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }); });
-  document.addEventListener('touchmove', function (e) { if (!(e.target.closest && e.target.closest('#talk'))) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', function (e) { if (!(e.target.closest && e.target.closest('#talk, #craftPanel'))) e.preventDefault(); }, { passive: false });
   ['pointerdown', 'pointerup', 'touchend', 'click'].forEach(function (n) { window.addEventListener(n, unlockAudio, true); });
   document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
@@ -1496,15 +2811,24 @@
     var c = btn.querySelector('canvas'), s = spr(name, 0);
     c.width = s.w; c.height = s.h; var x = c.getContext('2d'); x.clearRect(0, 0, s.w, s.h); x.drawImage(s.c, 0, 0);
   }
-  var cells = {};
+  var cells = {}, badges = {};
   GOODIES.forEach(function (d) {
     var cell = document.createElement('div'); cell.className = 'cell';
     var c = document.createElement('canvas'); c.width = 12; c.height = 12; cell.appendChild(c);
+    var bd = document.createElement('span'); bd.className = 'count'; cell.appendChild(bd); badges[d.id] = bd;
     pouchGrid.appendChild(cell); cells[d.id] = c;
   });
   function fillPouch() {
     $('diamondCount').textContent = ST.diamonds;
     $('replayBtn').hidden = !ST.finaleDone;
+    GOODIES.forEach(function (d) { badges[d.id].textContent = (ST.inv[d.id] || 0) > 1 ? ST.inv[d.id] : ''; });
+    var pg = $('packGrid'), extra = Object.keys(ST.inv).filter(function (id) { return ST.inv[id] > 0 && !goodieDef[id]; });
+    pg.innerHTML = ''; $('packTitle').textContent = extra.length ? LINES.ui.packTitle : '';
+    extra.forEach(function (id) {
+      var cell = document.createElement('div'), c = document.createElement('canvas'), n = document.createElement('span');
+      cell.className = 'cell'; paint(c, id); cell.appendChild(c); n.className = 'count'; n.textContent = ST.inv[id] > 1 ? ST.inv[id] : ''; cell.appendChild(n);
+      pg.appendChild(cell);
+    });
     GOODIES.forEach(function (d) {
       var c = cells[d.id], x = c.getContext('2d'); x.clearRect(0, 0, 12, 12);
       if (has(d.id)) x.drawImage(goodieSpr[d.id], 1, 1);
@@ -1536,14 +2860,21 @@
       if (!ST.hintSkip && playTime > 50) { ST.hintSkip = true; save(); showBubble({ text: LINES.hints.skip }, { noCount: true }); }
       else if (!ST.hintWish && playTime > 110) { ST.hintWish = true; save(); showBubble({ text: LINES.hints.wish }, { noCount: true }); }
     }
+    if (buildPending && greetT <= 0 && !bub.on && !talk && !finale && goose.state === 'idle' && scene === 'pond' && !trip) startBuild(buildPending);
     if (growPending && !bub.on && greetT <= 0 && goose.state === 'idle' && !finale && !talk) growMoment();
-    updateJune(dt); updateBreads(dt); updateGoose(dt); updateEffects(dt); updateBubble(dt);
+    updateFade(dt);
+    if (scene === 'forest') { updateForest(dt); tickFx(dt); updateBubble(dt); }
+    else if (scene === 'hut') { updateHut(dt); updateHutFx(dt); tickFx(dt); updateBubble(dt); }
+    else { updateJune(dt); updateBreads(dt); updateGoose(dt); updateEffects(dt); updateBubble(dt); hungerTick(dt);
+      muttT -= dt;
+      if (muttT <= 0) { muttT = rnd(240, 420); if (!bub.on && !talk && !finale && goose.state === 'idle' && greetT <= 0 && !trip && !building && !smores) speak('goose', goose); }
+    }
     render();
   }
   function newSession() {
     hideBubble(); breads.length = 0; june.pending = null; juneIdle();
     if (goose.state !== 'idle') { goose.x = clamp(goose.x, 14, sw - 14); goose.y = 120; toIdle(); }
-    napEpoch = playTime; napDelay = rint(60, 120); firstNap = true; june.nappedOnce = false;
+    napEpoch = playTime; napDelay = rint(60, 120); firstNap = true; june.nappedOnce = false; hungerShown = 0;
     startSession();
   }
   function pause() {
@@ -1567,6 +2898,12 @@
   /* ---------- boot ---------- */
   function boot() {
     loadState();
+    if (!ST.lastFed) ST.lastFed = Date.now();
+    ST.goodies.forEach(function (id) { if (!ST.inv[id]) ST.inv[id] = 1; });
+    if (Q.get('world') === '1') {
+      ST.boat = ST.fire = ST.feeder = true; ST.seeds = 6; ST.feeds = Math.max(ST.feeds || 0, 40);
+      ['marshmallow', 'chocolate', 'cracker', 'twig', 'pebble', 'pinecone'].forEach(function (id) { ST.inv[id] = Math.max(ST.inv[id] || 0, 3); });
+    }
     try {
       var lk = document.createElement('link'); lk.rel = 'apple-touch-icon'; lk.href = SPR.iconURL(); document.head.appendChild(lk);
     } catch (e) { /* icon is optional */ }
@@ -1580,12 +2917,17 @@
     var dc = $('diamondIcon'), dg = dc.getContext('2d'); dg.drawImage(spr('diamond', 0).c, 0, 0);
     if (!isNaN(forcedStage)) ST.stage = computeStage();
     if (Q.get('finale') === '1') setTimeout(startFinale, 1500);
+    if (Q.get('hut') === '1') setTimeout(function () {
+      ['berry', 'berry', 'mushroom', 'mushroom', 'pinecone', 'flower', 'clover', 'chocolate', 'marshmallow', 'acorn', 'acorn'].forEach(function (id) { ST.inv[id] = (ST.inv[id] || 0) + 1; });
+      enterHut();
+    }, 600);
+    if (Q.get('hut') === '2') setTimeout(function () { ST.inv = {}; ST.boat = true; ST.quest = null; enterHut(); }, 600);
+    if (Q.get('forest') === '1') setTimeout(function () { ST.boat = true; enterForest(); }, 600);
     updateMuteIcon();
     readClock(); resize();
     flushQueue();
-    dog.x = dogHome().x; dog.y = dogHome().y;
-    june.wx = L.juneL + 8; june.wy = 182; june.fdir = -1; june.strollAt = 45;
-    goose.x = sw * 0.4; goose.y = 118;
+    dog.x = dogHome().x; dog.y = dogHome().y; dog.trickT = 80;
+    june.wx = L.juneL + 8; june.wy = 182; june.fdir = -1; june.strollAt = 45;    goose.x = sw * 0.4; goose.y = 118;
     napDelay = rint(60, 120);
     startSession();
     ST.pending.forEach(function (id, i) { if (goodieDef[id] && i < 3) placeGoodie(id, i, false); });
